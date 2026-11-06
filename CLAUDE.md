@@ -6,14 +6,29 @@ Onchain firewall for AI agents, built for the MLH Solana Hackathon (Nov 6-8, 202
 
 | Path | Status | Purpose |
 |---|---|---|
-| `programs/leash` | Phase 2 | The Anchor program |
-| `tests/` | Phase 2 | Mocha tests against a local validator: `helpers.ts` (shared), `leash.ts` (owner paths), `attacks.ts` (tier routing, attacks, approvals) |
-| `packages/sdk` | Partial | `classifyTier` and `patchClearDevice`. The full client comes later |
+| `programs/leash` | Phase 3, deployed | The Anchor program |
+| `tests/` | Phase 3 | Mocha tests against a local validator: `helpers.ts` (shared), `leash.ts` (owner paths), `attacks.ts` (tier routing, attacks, approvals) |
+| `packages/sdk` | Phase 3 | The shared client: `LeashClient`, events, error messages, `classifyTier`. See its README |
+| `scripts` | Phase 3 | `deploy-devnet.sh`, `bootstrap-devnet.ts`, `smoke-devnet.ts` |
 | `apps/agent` | Stub | The AI agent |
 | `apps/web` | Stub | Owner dashboard |
 | `apps/mcp` | Stub | MCP server |
 | `device/unoq` | Stub | Hardware device key firmware |
-| `demo` | Stub | Demo scripts and assets |
+| `demo` | Phase 3 | `devnet.json`: public addresses of the demo vault for the dashboard and agent |
+
+### Devnet deployment
+
+| Item | Value |
+|---|---|
+| Program ID | `8XkDgSyKTDfg7WGP8RGS4bgqN4L2XjMQmEnG4gUCCu2C` |
+| Upgrade authority | `2pJ8gVQmeTdyh2Ewz5H6zn4Z13J9fQkRheHiNi2pHFD8` (the CLI wallet) |
+| Deploy tx | `52PX6n6mQvYEgWXqezbdFdyJ8WoG4fPpDMZCov6RY3kZTFEr1AonhQiueudV1rgV7db273e2DU46Rqiz9bkMgcsM` |
+| IDL | Onchain through the program metadata program, account `FdBCrdS4bsDgZ7Ad9K3QWdNyHZt2dqKNZExHqQuBf13w` |
+| Size | 326,456 bytes, with no spare capacity. A bigger build needs `solana program extend` first |
+
+An upgrade temporarily ties up about 1.66 SOL for its buffer, refunded when it finishes, so top up the CLI wallet from `browserWallet` first. After an upgrade that changes the interface, run `pnpm build:sdk`.
+
+The demo vault's secret keys live in `keys/`, which is gitignored. A run of `pnpm smoke:devnet` uses 28 dUSDC of the vault's 500 daily cap until the window resets.
 
 ### Program accounts
 
@@ -129,8 +144,19 @@ cargo clippy --all-targets -- -D warnings
 anchor keys sync
 ```
 ```bash
-anchor deploy --provider.cluster devnet
+pnpm build:sdk
 ```
+```bash
+pnpm deploy:devnet
+```
+```bash
+pnpm bootstrap:devnet
+```
+```bash
+pnpm smoke:devnet
+```
+
+The devnet commands read `LEASH_RPC_URL` from `.env` (see `.env.example`) and fall back to the public endpoint, which logs 429 retries but works. Run `pnpm build:sdk` before the bootstrap and smoke scripts: `dist/` is gitignored. `pnpm deploy:devnet` stops before sending anything if the program ID does not match or the balance is short; `CHECK_ONLY=1` stops it after those checks.
 
 `pnpm test:fast` (plain `anchor test`) takes about 70 seconds and skips the two tests that wait out the 60-second minimum durations. `pnpm test:all` sets `RUN_SLOW=1` to include them and takes about 3 minutes. Both also run the SDK tests and stop the validator when they finish. `pnpm test:sdk` runs alone in under a second.
 
@@ -181,7 +207,13 @@ Newest last.
 23. **The four action events carry a `vault` field,** like every other event, so a dashboard can attribute them.
 24. **`close_pending` sends rent to the owner, not the agent that paid it.** `PendingAction` stores no payer and has no `_reserved`, and a refund to the payer would hand SOL to a leaked agent key. The owner funds the agent anyway. Only `Executed` and `Rejected` actions can close; an expired one must be rejected first. The audit trail survives in the transaction history and the `PendingClosed` event.
 25. **The test validator runs 50 ms slots (`ticks_per_slot = 8`),** which cut the fast suite from about 5 minutes to about 70 seconds. It requires two settings in `tests/helpers.ts`: web3.js's 30-second blockhash cache must be off, because 30 seconds is now past a blockhash's 150-slot lifetime, and the connection must use `confirmed`, because a fresh `processed` blockhash is ahead of the bank preflight simulates against. Both surface as `Blockhash not found`.
+26. **The SDK takes Anchor's exports through `packages/sdk/src/anchor.ts`.** `@anchor-lang/core` has no `exports` map, so Node loads its CommonJS build and cannot see named exports from ESM, while bundlers load its ESM build, which has no default. Scripts use the default import, since they only run in Node.
+27. **SDK events decode with `program.coder`, not the raw IDL.** The raw IDL gives PascalCase event names and snake_case fields, while `IdlEvents` promises camelCase, so a raw decoder type-checks and then fails at runtime.
+28. **`fetchRecentEvents` fetches transactions one at a time.** The public devnet RPC answers a `getTransactions` batch with a 429 for the whole batch, while single calls retry with backoff.
+29. **Bootstrap funds the owner and device too,** beyond the agent and guard: the owner pays `init_vault` and allowlist rent, and the device pays its own approval fee. It tops a key up only below half its target, so rerunning changes nothing.
+30. **`per_recipient_cap` in the demo vault is 200 dUSDC,** matching `per_tx_max`, so the mandate alone sets the tiers.
+31. **The dUSDC mint authority is the CLI wallet.** `browserWallet` gets 500 dUSDC and no SOL from bootstrap, so Phase 5 can have it create and own a vault from the dashboard.
 
 ## Phase status
 
-Phase 2 is complete: 84 tests pass, 71 against the program and 13 in the SDK. Phase 3 (deploy) has not started.
+Phase 3 is complete: deployed to devnet, demo vault bootstrapped, SDK built, and the smoke test passes against devnet. `pnpm test:all` runs 92 tests, 75 against the program and 17 in the SDK. The SDK has not yet been imported from a real Next.js build; that comes with the dashboard.

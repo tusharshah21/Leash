@@ -1,0 +1,327 @@
+import { Buffer } from "buffer";
+import type { AnchorProvider, Program as AnchorProgram } from "@anchor-lang/core";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction } from "@solana/web3.js";
+import { BN, Program, utils } from "./anchor.js";
+import { LeashTxError } from "./errors.js";
+import { type LeashEvent, parseEvents } from "./events.js";
+import { IDL, type Leash } from "./idl.js";
+import { classifyTier, patchClearDevice, type Tier } from "./tier.js";
+
+export const PROGRAM_ID = new PublicKey((IDL as unknown as { address: string }).address);
+
+const seedPda = (...seeds: (string | Buffer | PublicKey)[]) =>
+  PublicKey.findProgramAddressSync(
+    seeds.map((s) =>
+      typeof s === "string" ? Buffer.from(s) : Buffer.isBuffer(s) ? s : s.toBuffer()
+    ),
+    PROGRAM_ID
+  )[0];
+
+export const vaultPda = (owner: PublicKey) => seedPda("vault", owner);
+export const vaultTokenPda = (vault: PublicKey) => seedPda("vault_token", vault);
+export const mandatePda = (vault: PublicKey) => seedPda("mandate", vault);
+export const allowPda = (vault: PublicKey, recipient: PublicKey) =>
+  seedPda("allow", vault, recipient);
+export const pendingPda = (vault: PublicKey, nonce: bigint) =>
+  seedPda("pending", vault, new BN(nonce.toString()).toArrayLike(Buffer, "le", 8));
+
+/** sha256 of the reason text, as the 32 bytes the program stores. */
+export const reasonHash = (text: string): number[] =>
+  Array.from(Buffer.from(utils.sha256.hash(text), "hex"));
+
+const big = (x: BN) => BigInt(x.toString());
+const bn = (x: bigint) => new BN(x.toString());
+
+/** Anything that can co-sign: a wallet in this process, or a remote guard service. */
+export interface TxSigner {
+  publicKey: PublicKey;
+  signTransaction(tx: Transaction): Promise<Transaction>;
+}
+
+export interface ExecuteParams {
+  amount: bigint;
+  recipient: PublicKey;
+  reason: string;
+  /** Needed for MEDIUM. */
+  guard?: TxSigner;
+  /** Defaults to the recipient's associated token account. */
+  recipientTokenAccount?: PublicKey;
+  /** Lets a failing transaction land onchain, so it has a signature to link to. */
+  skipPreflight?: boolean;
+}
+
+export type ActResult =
+  | { tier: "LOW" | "MEDIUM"; signature: string }
+  | { tier: "HIGH"; signature: string; nonce: bigint };
+
+/**
+ * A client for one vault, signing as `provider.wallet`. Make one per identity: the agent's wallet
+ * for execute, propose and act, the owner's or device's for approve, reject and revoke.
+ */
+export class LeashClient {
+  readonly program: AnchorProgram<Leash>;
+  readonly vault: PublicKey;
+  readonly mandate: PublicKey;
+  readonly vaultToken: PublicKey;
+
+  constructor(readonly provider: AnchorProvider, readonly owner: PublicKey) {
+    this.program = new Program<Leash>(IDL, provider);
+    this.vault = vaultPda(owner);
+    this.mandate = mandatePda(this.vault);
+    this.vaultToken = vaultTokenPda(this.vault);
+  }
+
+  private get signer() {
+    return this.provider.wallet.publicKey;
+  }
+
+  private get connection() {
+    return this.provider.connection;
+  }
+
+  fetchVault = () => this.program.account.vault.fetch(this.vault);
+  fetchMandate = () => this.program.account.mandate.fetch(this.mandate);
+
+  /** Every proposal that still has an account, with its nonce, which the account does not store. */
+  async fetchPending() {
+    const count = (await this.fetchVault()).pendingNonce.toNumber();
+    const nonces = Array.from({ length: count }, (_, i) => BigInt(i));
+    const addresses = nonces.map((n) => pendingPda(this.vault, n));
+    const accounts = await this.program.account.pendingAction.fetchMultiple(addresses);
+    return accounts.flatMap((account, i) =>
+      account ? [{ ...account, nonce: nonces[i], address: addresses[i] }] : []
+    );
+  }
+
+  /** Pays an allowlisted recipient. Use `act` unless you already know the tier. */
+  async execute(p: ExecuteParams): Promise<string> {
+    const { mint } = await this.fetchVault();
+    const tx = await this.program.methods
+      .agentExecute(bn(p.amount), reasonHash(p.reason))
+      .accountsPartial({
+        agent: this.signer,
+        guard: p.guard?.publicKey ?? null,
+        vault: this.vault,
+        mandate: this.mandate,
+        mint,
+        vaultTokenAccount: this.vaultToken,
+        recipientTokenAccount:
+          p.recipientTokenAccount ?? getAssociatedTokenAddressSync(mint, p.recipient),
+        allowEntry: allowPda(this.vault, p.recipient),
+      })
+      .transaction();
+    return this.send(tx, { guard: p.guard, skipPreflight: p.skipPreflight });
+  }
+
+  /** Asks a human to approve a payment. Moves no funds. */
+  async propose(amount: bigint, recipient: PublicKey, reason: string) {
+    const nonce = big((await this.fetchVault()).pendingNonce);
+    const tx = await this.program.methods
+      .agentPropose(bn(amount), recipient, reasonHash(reason))
+      .accountsPartial({
+        agent: this.signer,
+        vault: this.vault,
+        mandate: this.mandate,
+        pendingAction: pendingPda(this.vault, nonce),
+      })
+      .transaction();
+    return { signature: await this.send(tx), nonce };
+  }
+
+  /** Executes or proposes, whichever the mandate calls for right now. */
+  async act(
+    amount: bigint,
+    recipient: PublicKey,
+    reason: string,
+    opts: { guard?: TxSigner } = {}
+  ): Promise<ActResult> {
+    const tier = await this.classify(amount, recipient);
+    if (tier === "HIGH") {
+      return { tier, ...(await this.propose(amount, recipient, reason)) };
+    }
+    if (tier === "MEDIUM" && !opts.guard) {
+      throw new Error(`A payment of ${amount} is MEDIUM risk and needs the guard's co-signature`);
+    }
+    const guard = tier === "MEDIUM" ? opts.guard : undefined;
+    return { tier, signature: await this.execute({ amount, recipient, reason, guard }) };
+  }
+
+  /** The tier a payment gets right now. Pause and expiry are not tiers: those fail onchain. */
+  async classify(amount: bigint, recipient: PublicKey): Promise<Tier> {
+    const [m, entry, clock] = await Promise.all([
+      this.fetchMandate(),
+      this.program.account.allowEntry.fetchNullable(allowPda(this.vault, recipient)),
+      this.connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY, "confirmed"),
+    ]);
+    if (!clock) throw new Error("Could not read the cluster clock");
+    return classifyTier(
+      {
+        lowThreshold: big(m.lowThreshold),
+        perTxMax: big(m.perTxMax),
+        dailyCap: big(m.dailyCap),
+        windowStart: big(m.windowStart),
+        windowSecs: big(m.windowSecs),
+      },
+      entry ? { perRecipientCap: big(entry.perRecipientCap) } : null,
+      big(m.spentToday),
+      amount,
+      Buffer.from(clock.data).readBigInt64LE(32)
+    );
+  }
+
+  async approve(nonce: bigint, recipientTokenAccount?: PublicKey): Promise<string> {
+    const pendingAction = pendingPda(this.vault, nonce);
+    const [{ mint }, { recipient }] = await Promise.all([
+      this.fetchVault(),
+      this.program.account.pendingAction.fetch(pendingAction),
+    ]);
+    const tx = await this.program.methods
+      .approvePending(bn(nonce))
+      .accountsPartial({
+        authority: this.signer,
+        vault: this.vault,
+        mandate: this.mandate,
+        pendingAction,
+        mint,
+        vaultTokenAccount: this.vaultToken,
+        recipientTokenAccount:
+          recipientTokenAccount ?? getAssociatedTokenAddressSync(mint, recipient),
+      })
+      .transaction();
+    return this.send(tx);
+  }
+
+  async reject(nonce: bigint): Promise<string> {
+    const tx = await this.program.methods
+      .rejectPending(bn(nonce))
+      .accountsPartial({
+        authority: this.signer,
+        vault: this.vault,
+        pendingAction: pendingPda(this.vault, nonce),
+      })
+      .transaction();
+    return this.send(tx);
+  }
+
+  /** Owner only. Returns a settled proposal's rent to the owner. */
+  async close(nonce: bigint): Promise<string> {
+    const tx = await this.program.methods
+      .closePending(bn(nonce))
+      .accountsPartial({
+        owner: this.signer,
+        vault: this.vault,
+        pendingAction: pendingPda(this.vault, nonce),
+      })
+      .transaction();
+    return this.send(tx);
+  }
+
+  async revoke(): Promise<string> {
+    const tx = await this.program.methods
+      .revokeAgent()
+      .accountsPartial({ authority: this.signer, vault: this.vault })
+      .transaction();
+    return this.send(tx);
+  }
+
+  async unpause(): Promise<string> {
+    const tx = await this.program.methods
+      .unpause()
+      .accountsPartial({ owner: this.signer, vault: this.vault })
+      .transaction();
+    return this.send(tx);
+  }
+
+  /** Owner only. An omitted key stays as it is, and `device: null` removes the device key. */
+  async rotateKeys(keys: {
+    agent?: PublicKey;
+    guard?: PublicKey;
+    device?: PublicKey | null;
+  }): Promise<string> {
+    const ix = await this.program.methods
+      .rotateKeys(keys.agent ?? null, keys.guard ?? null, keys.device ?? null)
+      .accountsPartial({ owner: this.signer, vault: this.vault })
+      .instruction();
+    return this.send(new Transaction().add(keys.device === null ? patchClearDevice(ix) : ix));
+  }
+
+  /** Calls back on each of this vault's events as they confirm. Returns an unsubscribe function. */
+  onLeashEvent(callback: (event: LeashEvent) => void): () => void {
+    const id = this.connection.onLogs(
+      PROGRAM_ID,
+      ({ err, logs, signature }) => {
+        if (err) return;
+        parseEvents(this.program, logs, signature)
+          .filter((e) => this.isOurs(e))
+          .forEach(callback);
+      },
+      "confirmed"
+    );
+    return () => void this.connection.removeOnLogsListener(id);
+  }
+
+  /** This vault's newest events first, for page load. */
+  async fetchRecentEvents(limit: number): Promise<LeashEvent[]> {
+    const signatures = await this.connection.getSignaturesForAddress(
+      this.vault,
+      { limit },
+      "confirmed"
+    );
+    // One at a time: the public devnet RPC rejects a whole getTransactions batch with a 429,
+    // while single calls retry with backoff.
+    const events: LeashEvent[] = [];
+    for (const { signature, err } of signatures) {
+      if (err) continue;
+      const tx = await this.connection.getTransaction(signature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+      const parsed = parseEvents(this.program, tx?.meta?.logMessages ?? [], signature);
+      events.push(...parsed.filter((e) => this.isOurs(e)));
+    }
+    return events.slice(0, limit);
+  }
+
+  private isOurs(event: LeashEvent) {
+    return event.data.vault.equals(this.vault);
+  }
+
+  /** Signs (guard first), sends and confirms. Failures become LeashTxError. */
+  private async send(
+    tx: Transaction,
+    opts: { guard?: TxSigner; skipPreflight?: boolean } = {}
+  ): Promise<string> {
+    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash(
+      "confirmed"
+    );
+    tx.feePayer = this.signer;
+    tx.recentBlockhash = blockhash;
+
+    let signature: string | undefined;
+    try {
+      const guarded = opts.guard ? await opts.guard.signTransaction(tx) : tx;
+      const signed = await this.provider.wallet.signTransaction(guarded);
+      signature = await this.connection.sendRawTransaction(signed.serialize(), {
+        skipPreflight: opts.skipPreflight,
+        preflightCommitment: "confirmed",
+      });
+      const { value } = await this.connection.confirmTransaction(
+        { signature, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
+      if (value.err) throw new Error(JSON.stringify(value.err));
+      return signature;
+    } catch (err) {
+      const logs = signature
+        ? (
+            await this.connection.getTransaction(signature, {
+              commitment: "confirmed",
+              maxSupportedTransactionVersion: 0,
+            })
+          )?.meta?.logMessages ?? undefined
+        : (err as { logs?: string[] }).logs;
+      throw new LeashTxError(err, signature, logs);
+    }
+  }
+}

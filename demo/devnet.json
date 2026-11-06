@@ -1,0 +1,81 @@
+{
+  "cluster": "devnet",
+  "programId": {
+    "address": "8XkDgSyKTDfg7WGP8RGS4bgqN4L2XjMQmEnG4gUCCu2C",
+    "explorer": "https://explorer.solana.com/address/8XkDgSyKTDfg7WGP8RGS4bgqN4L2XjMQmEnG4gUCCu2C?cluster=devnet"
+  },
+  "deployWallet": {
+    "address": "2pJ8gVQmeTdyh2Ewz5H6zn4Z13J9fQkRheHiNi2pHFD8",
+    "explorer": "https://explorer.solana.com/address/2pJ8gVQmeTdyh2Ewz5H6zn4Z13J9fQkRheHiNi2pHFD8?cluster=devnet"
+  },
+  "browserWallet": {
+    "address": "J2nBcSoqjH662JZ5U2uTVb1QuaDir8e6kkKaswrtEukq",
+    "explorer": "https://explorer.solana.com/address/J2nBcSoqjH662JZ5U2uTVb1QuaDir8e6kkKaswrtEukq?cluster=devnet",
+    "tokenAccount": "7VsCwqis75FBePK2SUarR1RqF3jYJkjM22DVpEBGEXcA"
+  },
+  "mint": {
+    "address": "6u8Y9nQunfwD3btuwkni2K9cL9ERy6ZueYyeoV4w3qhe",
+    "explorer": "https://explorer.solana.com/address/6u8Y9nQunfwD3btuwkni2K9cL9ERy6ZueYyeoV4w3qhe?cluster=devnet",
+    "symbol": "dUSDC",
+    "decimals": 6
+  },
+  "owner": {
+    "address": "7FZDpLVvMp1Vyx6L83mwib3vBmSeAVxP1XT8KeNrQDBN",
+    "explorer": "https://explorer.solana.com/address/7FZDpLVvMp1Vyx6L83mwib3vBmSeAVxP1XT8KeNrQDBN?cluster=devnet",
+    "tokenAccount": "GAj28pmfweEUZD3unYMXzeqW5o91E99KE8KiNWu9Kxmw"
+  },
+  "agent": {
+    "address": "2NdYCvjsZ7uzaX5x3HAssyFk5qo3HKMWPw2QjTM2YcBY",
+    "explorer": "https://explorer.solana.com/address/2NdYCvjsZ7uzaX5x3HAssyFk5qo3HKMWPw2QjTM2YcBY?cluster=devnet"
+  },
+  "guard": {
+    "address": "2sQS8Sk8T7wyfCvxdvuKaxBPkBQabsAy8te2E2WJseMR",
+    "explorer": "https://explorer.solana.com/address/2sQS8Sk8T7wyfCvxdvuKaxBPkBQabsAy8te2E2WJseMR?cluster=devnet"
+  },
+  "device": {
+    "address": "6L294G7H3MgqYa9Wudz2ohwJUWW4vMTP857y7fuscQaY",
+    "explorer": "https://explorer.solana.com/address/6L294G7H3MgqYa9Wudz2ohwJUWW4vMTP857y7fuscQaY?cluster=devnet"
+  },
+  "vault": {
+    "address": "ApdUdEFsbBorYJVL53aABA6NDmVDq8jYXWAGSDTH8Fkf",
+    "explorer": "https://explorer.solana.com/address/ApdUdEFsbBorYJVL53aABA6NDmVDq8jYXWAGSDTH8Fkf?cluster=devnet",
+    "tokenAccount": "FxRcMYqhuc3A362xG6Ltg2DRP6f6s2QwM8D6aDyfGdZb",
+    "mandate": "9JB8RwygQvzA9UjNPSLe7C3nXQeVVeufMnBkMCdaqErA"
+  },
+  "mandate": {
+    "lowThreshold": "25000000",
+    "perTxMax": "200000000",
+    "dailyCap": "500000000",
+    "expiresAt": 1794580655,
+    "windowSecs": 86400,
+    "pendingTtlSecs": 86400
+  },
+  "vendors": [
+    {
+      "name": "Acme Design",
+      "address": "GVVuNanP4wDCjdeB8drV7bsUGtvxYTksXShJdJ8gXpwj",
+      "explorer": "https://explorer.solana.com/address/GVVuNanP4wDCjdeB8drV7bsUGtvxYTksXShJdJ8gXpwj?cluster=devnet",
+      "tokenAccount": "B7gMs2F2qjjWmFRtEmSnmb7rgcZkSdYiNoXTuDp95j29",
+      "allowEntry": "62Jzo9udMQDeXP2nzJAQiUrLtETwMeCS2uou2fV5wC8c"
+    },
+    {
+      "name": "CloudHost Inc",
+      "address": "U2LLPr2hyBhMyd1wLTuk4TCJ6zuJECnZr4CWL6R15yz",
+      "explorer": "https://explorer.solana.com/address/U2LLPr2hyBhMyd1wLTuk4TCJ6zuJECnZr4CWL6R15yz?cluster=devnet",
+      "tokenAccount": "2zMe54mLpdDFYznzYgDR51XCxd52UBesxoZgh8JngcsW",
+      "allowEntry": "5i9bhzuydkLXZZ4ksnYrWm1fe4VqhrGMKa17L27ots5F"
+    },
+    {
+      "name": "DataLabs",
+      "address": "D6aQ3asNF7nc2YCzya2eqqYeFT58BvbTH5S2tyJkdDnW",
+      "explorer": "https://explorer.solana.com/address/D6aQ3asNF7nc2YCzya2eqqYeFT58BvbTH5S2tyJkdDnW?cluster=devnet",
+      "tokenAccount": "7TvNvmkM73Lh8B1CSHgE4eyGtd66wPcCrwzFVuQ1AZjg",
+      "allowEntry": "JAZnSeX2bCGVR9AtxKLyTPn9sN4gugiNfaiYQFa8QiMc"
+    }
+  ],
+  "attacker": {
+    "address": "3jsPuBY3zfoNroFhQVNBA6UGqXWWYntgK6qY6F6hUcZ9",
+    "explorer": "https://explorer.solana.com/address/3jsPuBY3zfoNroFhQVNBA6UGqXWWYntgK6qY6F6hUcZ9?cluster=devnet",
+    "tokenAccount": "B8eGoiTHKnw3tSc6iSBmsKhLnNTKHT2aDieuk6s2qjfm"
+  }
+}

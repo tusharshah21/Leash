@@ -7,14 +7,19 @@
     "node": "22.22.3"
   },
   "scripts": {
-    "lint:fix": "prettier \"tests/**/*.ts\" \"packages/**/*.ts\" --print-width 100 -w",
-    "lint": "prettier \"tests/**/*.ts\" \"packages/**/*.ts\" --print-width 100 --check",
+    "lint:fix": "prettier \"tests/**/*.ts\" \"scripts/**/*.ts\" \"packages/**/*.ts\" --print-width 100 -w",
+    "lint": "prettier \"tests/**/*.ts\" \"scripts/**/*.ts\" \"packages/**/*.ts\" --print-width 100 --check",
     "test:fast": "anchor test",
     "test:all": "RUN_SLOW=1 anchor test",
-    "test:sdk":"ts-mocha -p ./tsconfig.json \"packages/sdk/test/**/*.ts\""
+    "test:sdk": "ts-mocha -p ./tsconfig.json \"packages/sdk/test/**/*.ts\"",
+    "build:sdk": "pnpm --filter @leash/sdk sync-idl && pnpm --filter @leash/sdk build",
+    "deploy:devnet": "bash scripts/deploy-devnet.sh",
+    "bootstrap:devnet": "node --env-file-if-exists=.env scripts/bootstrap-devnet.ts",
+    "smoke:devnet": "node --env-file-if-exists=.env scripts/smoke-devnet.ts"
   },
   "dependencies": {
-    "@anchor-lang/core": "1.2.2"
+    "@anchor-lang/core": "1.2.2",
+    "@leash/sdk": "workspace:*"
   },
   "devDependencies": {
     "@solana/spl-token": "0.4.15",

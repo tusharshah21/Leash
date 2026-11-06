@@ -1,10 +1,13 @@
 # Secrets
 .env*
+!.env.example
 *keypair*.json
 id.json
+keys/
 
 # Build and test output
 target/
+dist/
 .anchor/
 test-ledger/
 .surfpool/
