@@ -1,0 +1,15 @@
+# Secrets
+.env*
+*keypair*.json
+id.json
+
+# Build and test output
+target/
+.anchor/
+test-ledger/
+.surfpool/
+node_modules/
+
+# Editor and OS
+**/*.rs.bk
+.DS_Store

@@ -1,0 +1,18 @@
+[toolchain]
+anchor_version = "1.2.2"
+solana_version = "4.1.2"
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+leash = "8XkDgSyKTDfg7WGP8RGS4bgqN4L2XjMQmEnG4gUCCu2C"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "pnpm exec ts-mocha -p ./tsconfig.json -t 1000000 \"tests/**/*.ts\""

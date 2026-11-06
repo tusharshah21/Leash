@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+# Optional native speedups for ws. Not needed, so their install scripts stay off.
+ignoredBuiltDependencies:
+  - bufferutil
+  - utf-8-validate
