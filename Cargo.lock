@@ -248,7 +248,10 @@ dependencies = [
  "anchor-lang",
  "solana-stake-interface",
  "solana-sysvar",
+ "spl-associated-token-account-interface",
+ "spl-pod",
  "spl-token-2022-interface",
+ "spl-token-group-interface",
  "spl-token-interface",
  "spl-token-metadata-interface",
 ]
@@ -1909,6 +1912,16 @@ dependencies = [
  "thiserror 2.0.21",
  "wasm-bindgen",
  "zeroize",
+]
+
+[[package]]
+name = "spl-associated-token-account-interface"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6433917b60441d68d99a17e121d9db0ea15a9a69c0e5afa34649cf5ba12612f"
+dependencies = [
+ "solana-instruction 3.5.1",
+ "solana-pubkey 3.0.0",
 ]
 
 [[package]]

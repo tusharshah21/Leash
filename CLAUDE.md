@@ -90,3 +90,14 @@ Newest last.
 8. **No `close_vault` for now.** Noted in the README roadmap.
 9. **`rotate_keys` added in Phase 1.** Without it, `unpause` would revive a leaked agent key and the owner could not create a replacement vault. Rotating the agent requires the vault to be paused first.
 10. **`withdraw` works while paused,** so the owner can always pull funds during an incident.
+11. **`rotate_keys` takes `new_device: Option<Option<Pubkey>>`, and Anchor's TS coder cannot encode `Some(None)`.** It encodes `null` as the outer `None`, so removing the device key from TypeScript requires patching the instruction data: replace the trailing `0x00` with `0x01 0x00`. `tests/leash.ts` does this. `packages/sdk` needs the same helper.
+12. **Tests wait for `confirmed` everywhere, setup included.** Options passed to `.rpc()` replace the provider defaults rather than merging, so `preflightCommitment` must be set alongside `commitment`, or preflight fails with `Blockhash not found`. Setup that only reaches `processed` races the next `confirmed` preflight and fails with `AccountNotInitialized`.
+13. **`anchor-spl` keeps its default features.** The `Accounts` derive references `token_2022` and `token_interface` even for classic SPL Token, so trimming features breaks the build.
+
+## Phase status
+
+Phase 1 is complete. Phase 2 follow-ups already marked as TODOs in the code:
+
+- `agent_execute`, `approve_pending`, `reject_pending` in `programs/leash/src/lib.rs`.
+- Extend `leaked_agent_key_useless_after_rotate` to assert `agent_execute` rejects the leaked key. Today it can only show the key has no owner powers, because the agent has no instruction yet.
+- Extend the mandate update test to assert a nonzero `spent_today` survives an update.
