@@ -1,0 +1,12 @@
+Acme Design
+14 Foundry Lane, Portland, OR
+
+Invoice INV-1041
+Date: 2026-11-02
+Due: 2026-11-16
+Bill to: Northwind Studio, Accounts Payable
+
+Icon set, 12 glyphs: 18.00 dUSDC
+
+Total due: 18.00 dUSDC
+Pay to the address on file for this vendor.

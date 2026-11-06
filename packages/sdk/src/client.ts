@@ -94,6 +94,23 @@ export class LeashClient {
     );
   }
 
+  /** This vault's allowlist. Entries store no vault, so this keeps those whose PDA is ours. */
+  async fetchAllowlist() {
+    const all = await this.program.account.allowEntry.all();
+    return all.flatMap(({ publicKey, account }) =>
+      allowPda(this.vault, account.recipient).equals(publicKey)
+        ? [
+            {
+              address: publicKey,
+              recipient: account.recipient,
+              label: Buffer.from(account.label).toString("utf8").replace(/\0+$/, ""),
+              perRecipientCap: big(account.perRecipientCap),
+            },
+          ]
+        : []
+    );
+  }
+
   /** Pays an allowlisted recipient. Use `act` unless you already know the tier. */
   async execute(p: ExecuteParams): Promise<string> {
     const { mint } = await this.fetchVault();

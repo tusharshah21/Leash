@@ -8,6 +8,7 @@ keys/
 # Build and test output
 target/
 dist/
+logs/
 .anchor/
 test-ledger/
 .surfpool/

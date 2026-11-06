@@ -8,13 +8,36 @@ Onchain firewall for AI agents, built for the MLH Solana Hackathon (Nov 6-8, 202
 |---|---|---|
 | `programs/leash` | Phase 3, deployed | The Anchor program |
 | `tests/` | Phase 3 | Mocha tests against a local validator: `helpers.ts` (shared), `leash.ts` (owner paths), `attacks.ts` (tier routing, attacks, approvals) |
-| `packages/sdk` | Phase 3 | The shared client: `LeashClient`, events, error messages, `classifyTier`. See its README |
-| `scripts` | Phase 3 | `deploy-devnet.sh`, `bootstrap-devnet.ts`, `smoke-devnet.ts` |
-| `apps/agent` | Stub | The AI agent |
+| `packages/sdk` | Phase 4 | The shared client: `LeashClient`, events, error messages, `classifyTier`, `verifyReasoning`. `@leash/sdk/node` adds logging and key loading. See its README |
+| `scripts` | Phase 4 | `deploy-devnet.sh`, `bootstrap-devnet.ts`, `smoke-devnet.ts`, `setup-vault.ts`, `gen-invoices.ts`, `demo-fresh.ts`, `demo-run.ts` |
+| `apps/agent` | Phase 4 | The executor: OpenAI tool loop, reads untrusted invoices, holds only the agent key |
+| `apps/guard` | Phase 4 | The guard: localhost HTTP service, decodes before signing, holds only the guard key |
 | `apps/web` | Stub | Owner dashboard |
 | `apps/mcp` | Stub | MCP server |
 | `device/unoq` | Stub | Hardware device key firmware |
-| `demo` | Phase 3 | `devnet.json`: public addresses of the demo vault for the dashboard and agent |
+| `demo` | Phase 4 | `devnet.json` (public addresses), `invoices/` and `scenarios/` (what the agent reads, and the expected outcomes) |
+
+### The AI layer
+
+Two processes with separate keys. The agent reads untrusted documents and can be fooled, on purpose: its prompt has no injection defenses. `pay` calls the SDK's `act()`, so the mandate picks the tier: LOW executes, MEDIUM posts to the guard, HIGH proposes.
+
+The guard's `POST /cosign` takes `{ userTask, proposal: { recipient, amount, memo, reasoning }, serializedTx }`, with `amount` in base units. Its pipeline runs in this order, and any error refuses without a signature:
+
+1. **Decode** (`decode.ts`, pure). Only one Leash `agent_execute` plus `SetComputeUnitLimit` or `SetComputeUnitPrice`. All 9 accounts as expected, with the recipient token account as the proposal recipient's ATA. Data exactly 48 bytes, amount equal to the proposal, reason hash equal to `sha256(reasoning)`. Fee payer is the agent, the only signers are the agent and guard, and the agent's signature verifies.
+2. **Rules** (`rules.ts`). Not paused, mandate unexpired, recipient allowlisted, tier not HIGH, and not a duplicate approved for this vault in the last 24 hours, from `logs/guard.jsonl`: same recipient and amount, with the same normalized memo or under the same task.
+3. **Judge** (`judge.ts`). A separate OpenAI call with its own prompt and a strict schema, `{ verdict, risk, rationale }`. Input is only `userTask`, the proposal and the onchain vendor list, never the invoice.
+4. **Sign.** The decision is logged first, so nothing is signed unlogged.
+
+Logs are gitignored and redacted: `logs/guard.jsonl` (every decision) and `logs/activity.jsonl` (agent and guard, one entry per action, the source for the Phase 5 "verified reasoning" badge through `verifyReasoning`).
+
+### Threat notes
+
+- The chain is the only hard limit. The guard and judge add judgement inside the mandate, and a compromised guard can only approve what the mandate already allows as MEDIUM.
+- LOW skips the guard, so an injection can still move up to `low_threshold` per transaction to an allowlisted vendor, until `daily_cap`.
+- `memo` and `reasoning` come from the possibly fooled agent, so they are an injection channel into the judge. The prompt treats them as claims and only the task as authority, and lengths are capped.
+- `userTask` also arrives through the agent. It is trusted here because the executor gets it from the operator and never rewrites it, but a stolen agent key could lie about it. The fix is for the guard to take the task from the operator directly.
+- The duplicate rule cannot see LOW payments, because they skip the guard. Across different tasks it keys on the memo, so a changed memo reaches the judge.
+- Separate keys in separate processes on one machine is demo-level separation. Production needs separate hosts or an enclave.
 
 ### Devnet deployment
 
@@ -155,6 +178,29 @@ pnpm bootstrap:devnet
 ```bash
 pnpm smoke:devnet
 ```
+```bash
+pnpm test:apps
+```
+```bash
+pnpm typecheck
+```
+```bash
+pnpm guard
+```
+```bash
+pnpm agent "Pay this week's invoices in demo/invoices/. AP approved: Acme Design 18, CloudHost Inc 120 and 45, DataLabs 340 dUSDC."
+```
+```bash
+pnpm demo:fresh
+```
+```bash
+pnpm demo:run
+```
+```bash
+RUN_LLM=1 pnpm test:apps
+```
+
+The apps run on Node's native TypeScript with `.ts` imports and no build step, but they import the SDK's `dist/`, so run `pnpm build:sdk` first. `pnpm test:apps` needs no network or LLM unless `RUN_LLM=1`. `pnpm demo:fresh` costs about 0.0135 SOL from the CLI wallet. `pnpm demo:run` exits non-zero if the outcome differs from `demo/scenarios/*.json`.
 
 The devnet commands read `LEASH_RPC_URL` from `.env` (see `.env.example`) and fall back to the public endpoint, which logs 429 retries but works. Run `pnpm build:sdk` before the bootstrap and smoke scripts: `dist/` is gitignored. `pnpm deploy:devnet` stops before sending anything if the program ID does not match or the balance is short; `CHECK_ONLY=1` stops it after those checks.
 
@@ -213,7 +259,16 @@ Newest last.
 29. **Bootstrap funds the owner and device too,** beyond the agent and guard: the owner pays `init_vault` and allowlist rent, and the device pays its own approval fee. It tops a key up only below half its target, so rerunning changes nothing.
 30. **`per_recipient_cap` in the demo vault is 200 dUSDC,** matching `per_tx_max`, so the mandate alone sets the tiers.
 31. **The dUSDC mint authority is the CLI wallet.** `browserWallet` gets 500 dUSDC and no SOL from bootstrap, so Phase 5 can have it create and own a vault from the dashboard.
+32. **The default model is `gpt-4o-mini`, set only in `.env.example`.** Code reads `OPENAI_MODEL` and refuses to start without it. Tested live: `gpt-6-luna` returns a 400 on `temperature`, and the spec needs temperature 0. `gpt-4o-mini` accepts temperature 0, tools and strict schemas through the Responses API. Its shutdown is announced for Jan 14, 2027.
+33. **The demo task states approved amounts.** The judge never sees invoices, so with only "pay this week's invoices" it could not tell that an amount is inflated.
+34. **`act()` proposes unlisted recipients, so it never reaches onchain `NotAllowlisted`.** The fooled payment to the attacker sits Pending. `demo:run` adds a labelled bypass probe, a direct `agent_execute` as a stolen agent key could send, to show the chain block too.
+35. **`read_invoice` is confined to one folder, by real path and extension,** because an injection could otherwise make the executor read `.env` or `keys/`.
+36. **A loop step is one model turn,** and parallel tool calls in it run one after another. Max 8.
+37. **No automatic escalation after a guard denial.** The agent logs it and tells the model, because a fooled payment should not become a pending item by itself.
+38. **The duplicate rule counts approvals even if the transaction never landed,** so its failure mode is a refused retry, not a double payment.
+39. **A duplicate is the same recipient and amount with the same memo or under the same task.** The spec's recipient, amount and memo rule let a double payment through in a consistency run: after the guard denied the injected 190, the executor retried with the approved 60 under a new memo, and the judge, which cannot see past payments, approved it. The cost is that a task approving two identical amounts to one vendor gets the second refused.
+40. **The PDFs sit in `demo/invoices/` and the text copies in `demo/invoices/txt/`,** which `list_invoices` does not descend into, so nothing gets paid twice.
 
 ## Phase status
 
-Phase 3 is complete: deployed to devnet, demo vault bootstrapped, SDK built, and the smoke test passes against devnet. `pnpm test:all` runs 92 tests, 75 against the program and 17 in the SDK. The SDK has not yet been imported from a real Next.js build; that comes with the dashboard.
+Phase 4 is complete: executor, guard and injection demo work on devnet. `pnpm test:apps` runs 35 tests (one skipped without `RUN_LLM`), and `pnpm test:all` runs 92 against the program and SDK. A human approves the demo's pending DataLabs payment in the Phase 5 dashboard, so it stays Pending for now. The SDK has not yet been imported from a real Next.js build; that comes with the dashboard.

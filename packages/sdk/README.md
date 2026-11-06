@@ -19,13 +19,16 @@ A client signs as its provider's wallet and is bound to one vault, so make one p
 
 | Export | Purpose |
 |---|---|
-| `LeashClient` | `fetchVault`, `fetchMandate`, `fetchPending`, `execute`, `propose`, `act`, `classify`, `approve`, `reject`, `close`, `revoke`, `unpause`, `rotateKeys`, `onLeashEvent`, `fetchRecentEvents`, and `program` for the raw Anchor client |
+| `LeashClient` | `fetchVault`, `fetchMandate`, `fetchPending`, `execute`, `propose`, `act`, `classify`, `fetchAllowlist`, `approve`, `reject`, `close`, `revoke`, `unpause`, `rotateKeys`, `onLeashEvent`, `fetchRecentEvents`, and `program` for the raw Anchor client |
 | `vaultPda`, `vaultTokenPda`, `mandatePda`, `allowPda`, `pendingPda` | Account addresses |
 | `reasonHash` | sha256 of a reason's text |
 | `classifyTier` | Predicts the tier the program will route an action to |
 | `describeError`, `errorName`, `LeashTxError` | Program errors as short messages. Client methods throw `LeashTxError`, with the signature when the transaction landed |
 | `parseEvents`, `LeashEvent` | Decoded events |
 | `patchClearDevice` | Makes a `rotate_keys` instruction remove the device key, which Anchor's TS coder cannot encode |
+| `verifyReasoning`, `ActivityEntry` | Checks a logged reasoning against the `reason_hash` in an onchain event |
+
+`@leash/sdk/node` holds what only Node can run, so the main entry stays browser-safe: `appendActivity`, `appendJsonl`, `readJsonl`, `redact`, `readKeypair`, `providerFor`, `vaultOwner`.
 
 A guard is any `{ publicKey, signTransaction }`, so it can be a wallet in the same process or a remote service.
 

@@ -1,0 +1,5 @@
+{
+  "extends": "../apps/guard/tsconfig.json",
+  "compilerOptions": { "lib": ["es2023", "dom"] },
+  "include": ["*.ts"]
+}

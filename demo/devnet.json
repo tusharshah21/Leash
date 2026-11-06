@@ -77,5 +77,14 @@
     "address": "3jsPuBY3zfoNroFhQVNBA6UGqXWWYntgK6qY6F6hUcZ9",
     "explorer": "https://explorer.solana.com/address/3jsPuBY3zfoNroFhQVNBA6UGqXWWYntgK6qY6F6hUcZ9?cluster=devnet",
     "tokenAccount": "B8eGoiTHKnw3tSc6iSBmsKhLnNTKHT2aDieuk6s2qjfm"
+  },
+  "demoVault": {
+    "keyFile": "keys/demo-owner-1793986795801.json",
+    "owner": "7Z4QBrU9U2HR6qHFj9PV6CeemBVZ71rRf21Khdn9tUrA",
+    "vault": "5q4iqxBNnixGQZYcTJNPaSg2RveRHAxi8N4T3aoNaG2L",
+    "explorer": "https://explorer.solana.com/address/5q4iqxBNnixGQZYcTJNPaSg2RveRHAxi8N4T3aoNaG2L?cluster=devnet",
+    "tokenAccount": "2QkKXXcLemzSC9N2o85B49BeEVGcH4ELSEj3HKgqKLdR",
+    "mandate": "Gwomt6YqQon5N3tLdfrfTmYuJFzmg2N1i2TXPSJPrrtY",
+    "createdAt": "2026-11-06T17:40:09.406Z"
   }
 }

@@ -26,6 +26,15 @@ describe("sdk: errors", () => {
 
   it("falls back to the original message", () => {
     expect(describeError(new Error("socket hang up"))).to.equal("socket hang up");
+    expect(new LeashTxError({ InstructionError: [0, { Custom: 6005 }] }, "sig").code).to.equal(
+      "NotAllowlisted"
+    );
+    expect(errorName(new Error('{"InstructionError":[0,{"Custom":6005}]}'))).to.equal(
+      "NotAllowlisted"
+    );
+    expect(
+      new LeashTxError(new Error('{"InstructionError":[0,{"Custom":6005}]}'), "sig").code
+    ).to.equal("NotAllowlisted");
     expect(errorName(new Error("custom program error: 0x1"))).to.equal(undefined);
   });
 

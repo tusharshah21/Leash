@@ -1,6 +1,6 @@
 // Sets up the demo vault on devnet. Safe to rerun: each step checks the chain and skips if done.
-import { writeFileSync } from "node:fs";
-import { allowPda, LeashClient, PROGRAM_ID } from "@leash/sdk";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { allowPda, PROGRAM_ID } from "@leash/sdk";
 import {
   createMint,
   getAccount,
@@ -18,16 +18,15 @@ import {
 } from "@solana/web3.js";
 import {
   addressLink,
-  BN,
   cliWallet,
   CONFIRMED,
   connection,
   demoKey,
   DEVNET_JSON,
   dusdc,
-  providerFor,
   RPC,
 } from "./common.ts";
+import { setupVault } from "./setup-vault.ts";
 
 const BROWSER_WALLET = new PublicKey("J2nBcSoqjH662JZ5U2uTVb1QuaDir8e6kkKaswrtEukq");
 const VENDORS = [
@@ -36,15 +35,6 @@ const VENDORS = [
   ["DataLabs", "vendor-datalabs"],
 ] as const;
 
-const MANDATE = {
-  lowThreshold: dusdc(25),
-  perTxMax: dusdc(200),
-  dailyCap: dusdc(500),
-  windowSecs: 86_400,
-  pendingTtlSecs: 86_400,
-  expiresInSecs: 7 * 86_400,
-};
-const PER_RECIPIENT_CAP = dusdc(200);
 const OWNER_MINT = dusdc(10_000);
 const BROWSER_MINT = dusdc(500);
 const VAULT_DEPOSIT = dusdc(2_000);
@@ -52,7 +42,6 @@ const VAULT_DEPOSIT = dusdc(2_000);
 // Enough for fees and proposal rent. The owner also pays vault and allowlist rent.
 const FUNDING_SOL = { owner: 0.05, agent: 0.02, guard: 0.005, device: 0.005 };
 
-const bn = (x: bigint) => new BN(x.toString());
 const step = (done: boolean, label: string) => console.log(`${done ? "skip" : "do  "}  ${label}`);
 
 const payer = cliWallet();
@@ -116,61 +105,12 @@ const ata = async (wallet: PublicKey) =>
 const ownerToken = await ata(owner.publicKey);
 const browserToken = await ata(BROWSER_WALLET);
 const attackerToken = await ata(attacker.publicKey);
-const vendorTokens = [];
+const vendorTokens: PublicKey[] = [];
 for (const v of vendors) vendorTokens.push(await ata(v.key.publicKey));
 console.log("done  token accounts");
 
-// The vault.
-const client = new LeashClient(providerFor(owner), owner.publicKey);
-const { program, vault, mandate, vaultToken } = client;
-const vaultExists = (await program.account.vault.fetchNullable(vault)) !== null;
-step(vaultExists, "init_vault");
-if (!vaultExists) {
-  await program.methods
-    .initVault(agent.publicKey, guard.publicKey, device.publicKey)
-    .accountsPartial({ owner: owner.publicKey, vault, mint, vaultTokenAccount: vaultToken })
-    .rpc(CONFIRMED);
-}
-
-const existing = await program.account.mandate.fetchNullable(mandate);
-const mandateLive = existing !== null && existing.expiresAt.toNumber() > Date.now() / 1000 + 3600;
-step(mandateLive, "set_mandate");
-if (!mandateLive) {
-  await program.methods
-    .setMandate({
-      lowThreshold: bn(MANDATE.lowThreshold),
-      perTxMax: bn(MANDATE.perTxMax),
-      dailyCap: bn(MANDATE.dailyCap),
-      expiresAt: new BN(Math.floor(Date.now() / 1000) + MANDATE.expiresInSecs),
-      windowSecs: new BN(MANDATE.windowSecs),
-      pendingTtlSecs: new BN(MANDATE.pendingTtlSecs),
-    })
-    .accountsPartial({ owner: owner.publicKey, vault, mandate })
-    .rpc(CONFIRMED);
-}
-
-for (const v of vendors) {
-  const entry = allowPda(vault, v.key.publicKey);
-  const listed = (await program.account.allowEntry.fetchNullable(entry)) !== null;
-  step(listed, `allowlist ${v.name}`);
-  if (!listed) {
-    const label = Array.from(Buffer.concat([Buffer.from(v.name)], 32));
-    await program.methods
-      .addRecipient(v.key.publicKey, label, bn(PER_RECIPIENT_CAP))
-      .accountsPartial({ owner: owner.publicKey, vault, allowEntry: entry })
-      .rpc(CONFIRMED);
-  }
-}
-
-// Funds. Each mint and deposit runs only if there is nothing there yet.
 const amountOf = async (account: PublicKey) =>
   (await getAccount(connection, account, "confirmed")).amount;
-
-const ownerFunded = (await amountOf(ownerToken)) + (await amountOf(vaultToken)) > 0n;
-step(ownerFunded, "mint 10,000 dUSDC to owner");
-if (!ownerFunded) {
-  await mintTo(connection, payer, mint, ownerToken, payer, OWNER_MINT, [], CONFIRMED);
-}
 
 const browserFunded = (await amountOf(browserToken)) > 0n;
 step(browserFunded, "mint 500 dUSDC to browser wallet");
@@ -178,24 +118,24 @@ if (!browserFunded) {
   await mintTo(connection, payer, mint, browserToken, payer, BROWSER_MINT, [], CONFIRMED);
 }
 
-const vaultFunded = (await amountOf(vaultToken)) > 0n;
-step(vaultFunded, "deposit 2,000 dUSDC into the vault");
-if (!vaultFunded) {
-  await program.methods
-    .deposit(bn(VAULT_DEPOSIT))
-    .accountsPartial({
-      owner: owner.publicKey,
-      vault,
-      mint,
-      ownerTokenAccount: ownerToken,
-      vaultTokenAccount: vaultToken,
-    })
-    .rpc(CONFIRMED);
-}
+const { program, vault, mandate, vaultToken } = await setupVault({
+  payer,
+  owner,
+  agent: agent.publicKey,
+  guard: guard.publicKey,
+  device: device.publicKey,
+  mint,
+  ownerToken,
+  vendors: vendors.map((v) => ({ name: v.name, wallet: v.key.publicKey })),
+  ownerMint: OWNER_MINT,
+  deposit: VAULT_DEPOSIT,
+  step,
+});
 
 // Public addresses for the dashboard and the agent. No secrets.
 const ref = (key: PublicKey) => ({ address: key.toBase58(), explorer: addressLink(key) });
 const onchain = await program.account.mandate.fetch(mandate);
+const previous = existsSync(DEVNET_JSON) ? JSON.parse(readFileSync(DEVNET_JSON, "utf8")) : {};
 const out = {
   cluster: "devnet",
   programId: ref(PROGRAM_ID),
@@ -222,6 +162,7 @@ const out = {
     allowEntry: allowPda(vault, v.key.publicKey).toBase58(),
   })),
   attacker: { ...ref(attacker.publicKey), tokenAccount: attackerToken.toBase58() },
+  ...(previous.demoVault ? { demoVault: previous.demoVault } : {}),
 };
 writeFileSync(DEVNET_JSON, JSON.stringify(out, null, 2) + "\n");
 

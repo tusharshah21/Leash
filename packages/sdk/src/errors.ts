@@ -34,7 +34,11 @@ export function errorName(err: unknown): LeashErrorName | undefined {
   if (named && named in MESSAGES) return named as LeashErrorName;
 
   const hex = text.match(/custom program error: 0x([0-9a-f]+)/i)?.[1];
-  return hex ? NAMES[parseInt(hex, 16) - FIRST_CODE] : undefined;
+  if (hex) return NAMES[parseInt(hex, 16) - FIRST_CODE];
+
+  // A confirmed transaction's error, for when the RPC has no logs for it yet.
+  const custom = text.match(/"Custom":([0-9]+)/)?.[1];
+  return custom ? NAMES[Number(custom) - FIRST_CODE] : undefined;
 }
 
 /** A short message for people. Falls back to the error's own message for non-program errors. */
@@ -47,7 +51,12 @@ export function describeError(err: unknown): string {
 export class LeashTxError extends Error {
   readonly code?: LeashErrorName;
   constructor(cause: unknown, readonly signature?: string, readonly logs?: string[]) {
-    const details = { logs, message: String((cause as Error)?.message ?? cause) };
+    // web3.js rejects with the raw { InstructionError } object when it confirms by polling.
+    const message = (cause as Error)?.message;
+    const details = {
+      logs,
+      message: typeof message === "string" ? message : JSON.stringify(cause),
+    };
     super(describeError(details));
     this.name = "LeashTxError";
     this.code = errorName(details);

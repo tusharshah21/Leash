@@ -1,0 +1,14 @@
+{
+  "name": "@leash/guard",
+  "version": "0.1.0",
+  "private": true,
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@anchor-lang/core": "1.2.2",
+    "@leash/sdk": "workspace:*",
+    "@solana/spl-token": "0.4.15",
+    "@solana/web3.js": "1.99.0",
+    "openai": "7.53.0"
+  }
+}
