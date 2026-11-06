@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 
-use crate::{LeashError, Mandate, MandateSet, Vault, MANDATE_SEED, VAULT_SEED};
+use crate::{
+    LeashError, Mandate, MandateSet, Vault, DEFAULT_PENDING_TTL_SECS, DEFAULT_WINDOW_SECS,
+    MANDATE_SEED, MIN_DURATION_SECS, VAULT_SEED,
+};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct MandateParams {
@@ -8,6 +11,10 @@ pub struct MandateParams {
     pub per_tx_max: u64,
     pub daily_cap: u64,
     pub expires_at: i64,
+    /// `None` keeps the current value, or uses the default on a new mandate.
+    pub window_secs: Option<i64>,
+    /// `None` keeps the current value, or uses the default on a new mandate.
+    pub pending_ttl_secs: Option<i64>,
 }
 
 #[derive(Accounts)]
@@ -36,21 +43,38 @@ pub struct SetMandate<'info> {
 
 pub fn handle_set_mandate(ctx: Context<SetMandate>, params: MandateParams) -> Result<()> {
     let now = Clock::get()?.unix_timestamp;
+    let mandate = &mut ctx.accounts.mandate;
+    let is_new = mandate.window_start == 0;
+
+    let window_secs = params.window_secs.unwrap_or(if is_new {
+        DEFAULT_WINDOW_SECS
+    } else {
+        mandate.window_secs
+    });
+    let pending_ttl_secs = params.pending_ttl_secs.unwrap_or(if is_new {
+        DEFAULT_PENDING_TTL_SECS
+    } else {
+        mandate.pending_ttl_secs
+    });
+
     require!(
         params.low_threshold <= params.per_tx_max
             && params.per_tx_max <= params.daily_cap
-            && params.expires_at > now,
+            && params.expires_at > now
+            && window_secs >= MIN_DURATION_SECS
+            && pending_ttl_secs >= MIN_DURATION_SECS,
         LeashError::InvalidMandate
     );
 
-    let mandate = &mut ctx.accounts.mandate;
     mandate.low_threshold = params.low_threshold;
     mandate.per_tx_max = params.per_tx_max;
     mandate.daily_cap = params.daily_cap;
     mandate.expires_at = params.expires_at;
+    mandate.window_secs = window_secs;
+    mandate.pending_ttl_secs = pending_ttl_secs;
     mandate.bump = ctx.bumps.mandate;
     // Only a new mandate starts a window, so an update cannot reset today's spend.
-    if mandate.window_start == 0 {
+    if is_new {
         mandate.window_start = now;
     }
 
@@ -60,6 +84,8 @@ pub fn handle_set_mandate(ctx: Context<SetMandate>, params: MandateParams) -> Re
         per_tx_max: params.per_tx_max,
         daily_cap: params.daily_cap,
         expires_at: params.expires_at,
+        window_secs,
+        pending_ttl_secs,
     });
     Ok(())
 }

@@ -7,8 +7,9 @@
     "node": "22.22.3"
   },
   "scripts": {
-    "lint:fix": "prettier \"tests/**/*.ts\" -w",
-    "lint": "prettier \"tests/**/*.ts\" --check"
+    "lint:fix": "prettier \"tests/**/*.ts\" \"packages/**/*.ts\" --print-width 100 -w",
+    "lint": "prettier \"tests/**/*.ts\" \"packages/**/*.ts\" --print-width 100 --check",
+    "test:sdk": "ts-mocha -p ./tsconfig.json \"packages/sdk/test/**/*.ts\""
   },
   "dependencies": {
     "@anchor-lang/core": "1.2.2"

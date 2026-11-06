@@ -1,6 +1,10 @@
 pub mod add_recipient;
+pub mod agent_execute;
+pub mod agent_propose;
+pub mod approve_pending;
 pub mod deposit;
 pub mod init_vault;
+pub mod reject_pending;
 pub mod remove_recipient;
 pub mod revoke_agent;
 pub mod rotate_keys;
@@ -9,8 +13,12 @@ pub mod unpause;
 pub mod withdraw;
 
 pub use add_recipient::*;
+pub use agent_execute::*;
+pub use agent_propose::*;
+pub use approve_pending::*;
 pub use deposit::*;
 pub use init_vault::*;
+pub use reject_pending::*;
 pub use remove_recipient::*;
 pub use revoke_agent::*;
 pub use rotate_keys::*;

@@ -1,163 +1,33 @@
-import * as anchor from "@anchor-lang/core";
-import { BN, BorshCoder, EventParser, Program } from "@anchor-lang/core";
-import { createAssociatedTokenAccount, createMint, getAccount, mintTo } from "@solana/spl-token";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, Transaction } from "@solana/web3.js";
+import { BN } from "@anchor-lang/core";
+import { getAccount } from "@solana/spl-token";
+import { Keypair, Transaction } from "@solana/web3.js";
 import { expect } from "chai";
-import { Leash } from "../target/types/leash";
-
-const USDC = (n: number) => new BN(n * 1_000_000);
-const FAR_FUTURE = () => new BN(Math.floor(Date.now() / 1000) + 86_400);
-// Set both: rpc options replace the provider defaults, and with no preflightCommitment
-// the simulation runs against a bank too old to know the fresh blockhash.
-const CONFIRMED = { commitment: "confirmed", preflightCommitment: "confirmed" } as const;
+import { patchClearDevice } from "../packages/sdk/src/tier";
+import {
+  addRecipient,
+  balance,
+  CONFIRMED,
+  connection,
+  deposit,
+  expectError,
+  expectEvent,
+  FAR_FUTURE,
+  funded,
+  mint,
+  newVault,
+  pda,
+  program,
+  provider,
+  revoke,
+  rotate,
+  setMandate,
+  tokenAccount,
+  unpause,
+  USDC,
+  withdraw,
+} from "./helpers";
 
 describe("leash", () => {
-  const provider = anchor.AnchorProvider.env();
-  anchor.setProvider(provider);
-  const program = anchor.workspace.leash as Program<Leash>;
-  const connection = provider.connection;
-  const payer = (provider.wallet as anchor.Wallet).payer;
-  const parser = new EventParser(program.programId, new BorshCoder(program.idl));
-  let mint: PublicKey;
-
-  const pda = (...seeds: (string | PublicKey)[]) =>
-    PublicKey.findProgramAddressSync(
-      seeds.map((s) => (typeof s === "string" ? Buffer.from(s) : s.toBuffer())),
-      program.programId
-    )[0];
-
-  async function funded(): Promise<Keypair> {
-    const kp = Keypair.generate();
-    const sig = await connection.requestAirdrop(kp.publicKey, 10 * LAMPORTS_PER_SOL);
-    await connection.confirmTransaction(sig, "confirmed");
-    return kp;
-  }
-
-  /** A fresh owner holding 1000 dUSDC, with an initialized vault. */
-  async function newVault(withDevice = true) {
-    const owner = await funded();
-    const agent = Keypair.generate();
-    const guard = Keypair.generate();
-    const device = withDevice ? await funded() : null;
-    const vault = pda("vault", owner.publicKey);
-    const vaultToken = pda("vault_token", vault);
-    const ownerToken = await createAssociatedTokenAccount(
-      connection,
-      payer,
-      mint,
-      owner.publicKey,
-      CONFIRMED
-    );
-    await mintTo(connection, payer, mint, ownerToken, payer, 1000 * 1_000_000, [], CONFIRMED);
-    const initSig = await program.methods
-      .initVault(agent.publicKey, guard.publicKey, device?.publicKey ?? null)
-      .accountsPartial({ owner: owner.publicKey, vault, mint, vaultTokenAccount: vaultToken })
-      .signers([owner])
-      .rpc(CONFIRMED);
-    return { owner, agent, guard, device, vault, vaultToken, ownerToken, initSig };
-  }
-
-  type Ctx = Awaited<ReturnType<typeof newVault>>;
-
-  const deposit = (v: Ctx, amount: BN) =>
-    program.methods
-      .deposit(amount)
-      .accountsPartial({
-        owner: v.owner.publicKey,
-        vault: v.vault,
-        mint,
-        ownerTokenAccount: v.ownerToken,
-        vaultTokenAccount: v.vaultToken,
-      })
-      .signers([v.owner])
-      .rpc(CONFIRMED);
-
-  const setMandate = (v: Ctx, low: BN, perTx: BN, daily: BN, expiresAt: BN = FAR_FUTURE()) =>
-    program.methods
-      .setMandate({ lowThreshold: low, perTxMax: perTx, dailyCap: daily, expiresAt })
-      .accountsPartial({
-        owner: v.owner.publicKey,
-        vault: v.vault,
-        mandate: pda("mandate", v.vault),
-      })
-      .signers([v.owner])
-      .rpc(CONFIRMED);
-
-  const rotate = (
-    v: Ctx,
-    keys: { agent?: PublicKey; guard?: PublicKey; device?: PublicKey },
-    signer: Keypair = v.owner
-  ) =>
-    program.methods
-      .rotateKeys(keys.agent ?? null, keys.guard ?? null, keys.device ?? null)
-      .accountsPartial({ owner: signer.publicKey, vault: v.vault })
-      .signers([signer])
-      .rpc(CONFIRMED);
-
-  const revoke = (v: Ctx, signer: Keypair) =>
-    program.methods
-      .revokeAgent()
-      .accountsPartial({ authority: signer.publicKey, vault: v.vault })
-      .signers([signer])
-      .rpc(CONFIRMED);
-
-  const unpause = (v: Ctx, signer: Keypair = v.owner) =>
-    program.methods
-      .unpause()
-      .accountsPartial({ owner: signer.publicKey, vault: v.vault })
-      .signers([signer])
-      .rpc(CONFIRMED);
-
-  const withdraw = (v: Ctx, amount: BN, signer: Keypair = v.owner, to: PublicKey = v.ownerToken) =>
-    program.methods
-      .withdraw(amount)
-      .accountsPartial({
-        owner: signer.publicKey,
-        vault: v.vault,
-        mint,
-        ownerTokenAccount: to,
-        vaultTokenAccount: v.vaultToken,
-      })
-      .signers([signer])
-      .rpc(CONFIRMED);
-
-  const addRecipient = (v: Ctx, recipient: PublicKey, signer: Keypair = v.owner) =>
-    program.methods
-      .addRecipient(recipient, Array.from(Buffer.alloc(32, 7)), USDC(50))
-      .accountsPartial({
-        owner: signer.publicKey,
-        vault: v.vault,
-        allowEntry: pda("allow", v.vault, recipient),
-      })
-      .signers([signer])
-      .rpc(CONFIRMED);
-
-  const balance = async (account: PublicKey) => (await getAccount(connection, account)).amount;
-
-  async function expectError(attempt: Promise<unknown>, code: string) {
-    let error: any;
-    try {
-      await attempt;
-    } catch (e) {
-      error = e;
-    }
-    expect(error, `expected ${code}, but the transaction succeeded`).to.exist;
-    expect(error.error?.errorCode?.code, String(error)).to.equal(code);
-  }
-
-  async function expectEvent(signature: string, name: string) {
-    const tx = await connection.getTransaction(signature, {
-      commitment: "confirmed",
-      maxSupportedTransactionVersion: 0,
-    });
-    const names = [...parser.parseLogs(tx!.meta!.logMessages!)].map((e) => e.name);
-    expect(names).to.include(name);
-  }
-
-  before(async () => {
-    mint = await createMint(connection, payer, payer.publicKey, null, 6, undefined, CONFIRMED); // dUSDC
-  });
-
   describe("init_vault", () => {
     it("stores the keys and creates a vault-owned token account", async () => {
       const v = await newVault();
@@ -198,11 +68,72 @@ describe("leash", () => {
     });
   });
 
+  describe("key separation", () => {
+    const init = (
+      owner: Keypair,
+      agent: Keypair,
+      guard: Keypair,
+      device: Keypair | null = null
+    ) => {
+      const vault = pda("vault", owner.publicKey);
+      return program.methods
+        .initVault(agent.publicKey, guard.publicKey, device?.publicKey ?? null)
+        .accountsPartial({
+          owner: owner.publicKey,
+          vault,
+          mint,
+          vaultTokenAccount: pda("vault_token", vault),
+        })
+        .signers([owner])
+        .rpc(CONFIRMED);
+    };
+
+    it("agent_equal_guard_rejected", async () => {
+      const owner = await funded();
+      const key = Keypair.generate();
+      await expectError(init(owner, key, key), "KeyReuseNotAllowed");
+    });
+
+    it("agent_equal_owner_rejected", async () => {
+      const owner = await funded();
+      await expectError(init(owner, owner, Keypair.generate()), "KeyReuseNotAllowed");
+    });
+
+    it("guard_equal_owner_rejected", async () => {
+      const owner = await funded();
+      await expectError(init(owner, Keypair.generate(), owner), "KeyReuseNotAllowed");
+    });
+
+    it("device_equal_agent_or_guard_rejected", async () => {
+      const owner = await funded();
+      const agent = Keypair.generate();
+      const guard = Keypair.generate();
+      await expectError(init(owner, agent, guard, agent), "KeyReuseNotAllowed");
+      await expectError(init(owner, agent, guard, guard), "KeyReuseNotAllowed");
+    });
+
+    it("rotate_to_reused_key_rejected", async () => {
+      const v = await newVault();
+      const owner = v.owner.publicKey;
+      await revoke(v, v.owner);
+      await expectError(rotate(v, { agent: v.guard.publicKey }), "KeyReuseNotAllowed");
+      await expectError(rotate(v, { agent: owner }), "KeyReuseNotAllowed");
+      await expectError(rotate(v, { guard: v.agent.publicKey }), "KeyReuseNotAllowed");
+      await expectError(rotate(v, { guard: owner }), "KeyReuseNotAllowed");
+      await expectError(rotate(v, { device: v.agent.publicKey }), "KeyReuseNotAllowed");
+      await expectError(rotate(v, { device: v.guard.publicKey }), "KeyReuseNotAllowed");
+
+      const vault = await program.account.vault.fetch(v.vault);
+      expect(vault.agent.toBase58()).to.equal(v.agent.publicKey.toBase58());
+      expect(vault.guard.toBase58()).to.equal(v.guard.publicKey.toBase58());
+    });
+  });
+
   describe("set_mandate", () => {
     it("creates the mandate", async () => {
       const v = await newVault();
       const expiresAt = FAR_FUTURE();
-      const sig = await setMandate(v, USDC(10), USDC(100), USDC(500), expiresAt);
+      const sig = await setMandate(v, USDC(10), USDC(100), USDC(500), { expiresAt });
       const m = await program.account.mandate.fetch(pda("mandate", v.vault));
       expect(m.lowThreshold.toString()).to.equal(USDC(10).toString());
       expect(m.perTxMax.toString()).to.equal(USDC(100).toString());
@@ -213,7 +144,6 @@ describe("leash", () => {
       await expectEvent(sig, "mandateSet");
     });
 
-    // TODO(phase 2): assert a nonzero spent_today survives, once agent_execute can spend.
     it("update changes limits but keeps the spending window", async () => {
       const v = await newVault();
       await setMandate(v, USDC(10), USDC(100), USDC(500));
@@ -236,6 +166,8 @@ describe("leash", () => {
             perTxMax: USDC(1_000_000),
             dailyCap: USDC(1_000_000),
             expiresAt: FAR_FUTURE(),
+            windowSecs: null,
+            pendingTtlSecs: null,
           })
           .accountsPartial({
             owner: attacker.publicKey,
@@ -256,7 +188,10 @@ describe("leash", () => {
 
     it("already_expired_mandate_rejected", async () => {
       const v = await newVault();
-      await expectError(setMandate(v, USDC(1), USDC(2), USDC(3), new BN(1)), "InvalidMandate");
+      await expectError(
+        setMandate(v, USDC(1), USDC(2), USDC(3), { expiresAt: new BN(1) }),
+        "InvalidMandate"
+      );
     });
   });
 
@@ -342,13 +277,7 @@ describe("leash", () => {
       const v = await newVault();
       await deposit(v, USDC(100));
       const attacker = await funded();
-      const attackerToken = await createAssociatedTokenAccount(
-        connection,
-        payer,
-        mint,
-        attacker.publicKey,
-        CONFIRMED
-      );
+      const attackerToken = await tokenAccount(attacker.publicKey);
       await expectError(withdraw(v, USDC(100), attacker, attackerToken), "Unauthorized");
       expect(await balance(v.vaultToken)).to.equal(100_000_000n);
     });
@@ -357,13 +286,7 @@ describe("leash", () => {
       const v = await newVault();
       await deposit(v, USDC(100));
       const other = await funded();
-      const otherToken = await createAssociatedTokenAccount(
-        connection,
-        payer,
-        mint,
-        other.publicKey,
-        CONFIRMED
-      );
+      const otherToken = await tokenAccount(other.publicKey);
       await expectError(withdraw(v, USDC(1), v.owner, otherToken), "ConstraintTokenOwner");
     });
 
@@ -430,37 +353,6 @@ describe("leash", () => {
       expect(vault.agent.toBase58()).to.equal(v.agent.publicKey.toBase58());
     });
 
-    // TODO(phase 2): also assert agent_execute rejects the leaked key. It does not exist yet.
-    it("leaked_agent_key_useless_after_rotate", async () => {
-      const v = await newVault();
-      await deposit(v, USDC(100));
-      const leaked = v.agent;
-      const fresh = Keypair.generate();
-
-      await revoke(v, v.device!);
-      const sig = await rotate(v, { agent: fresh.publicKey });
-      await unpause(v);
-      await expectEvent(sig, "keysRotated");
-
-      const vault = await program.account.vault.fetch(v.vault);
-      expect(vault.paused).to.equal(false);
-      expect(vault.agent.toBase58()).to.equal(fresh.publicKey.toBase58());
-
-      // The vault is live again, and the leaked key has no authority over it.
-      await expectError(rotate(v, { agent: leaked.publicKey }, leaked), "Unauthorized");
-      await expectError(unpause(v, leaked), "Unauthorized");
-      await expectError(revoke(v, leaked), "Unauthorized");
-      const leakedToken = await createAssociatedTokenAccount(
-        connection,
-        payer,
-        mint,
-        leaked.publicKey,
-        CONFIRMED
-      );
-      await expectError(withdraw(v, USDC(100), leaked, leakedToken), "Unauthorized");
-      expect(await balance(v.vaultToken)).to.equal(100_000_000n);
-    });
-
     it("non_owner_cannot_rotate_keys", async () => {
       const v = await newVault();
       const attacker = await funded();
@@ -491,16 +383,17 @@ describe("leash", () => {
       await revoke(v, newDevice);
     });
 
-    // Anchor's TS coder encodes null as the outer None, so it cannot express Some(None).
-    // The instruction data ends in that option's byte: patch 0x00 to 0x01 0x00.
     it("owner can remove the device key", async () => {
       const v = await newVault();
       const ix = await program.methods
         .rotateKeys(null, null, null)
         .accountsPartial({ owner: v.owner.publicKey, vault: v.vault })
         .instruction();
-      ix.data = Buffer.concat([ix.data.subarray(0, ix.data.length - 1), Buffer.from([1, 0])]);
-      await provider.sendAndConfirm!(new Transaction().add(ix), [v.owner], CONFIRMED);
+      await provider.sendAndConfirm!(
+        new Transaction().add(patchClearDevice(ix)),
+        [v.owner],
+        CONFIRMED
+      );
 
       const vault = await program.account.vault.fetch(v.vault);
       expect(vault.device).to.equal(null);

@@ -69,5 +69,28 @@ pub mod leash {
         instructions::rotate_keys::handle_rotate_keys(ctx, new_agent, new_guard, new_device)
     }
 
-    // TODO(phase 2): agent_execute, approve_pending, reject_pending.
+    pub fn agent_execute(
+        ctx: Context<AgentExecute>,
+        amount: u64,
+        reason_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::agent_execute::handle_agent_execute(ctx, amount, reason_hash)
+    }
+
+    pub fn agent_propose(
+        ctx: Context<AgentPropose>,
+        amount: u64,
+        recipient: Pubkey,
+        reason_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::agent_propose::handle_agent_propose(ctx, amount, recipient, reason_hash)
+    }
+
+    pub fn approve_pending(ctx: Context<ApprovePending>, nonce: u64) -> Result<()> {
+        instructions::approve_pending::handle_approve_pending(ctx, nonce)
+    }
+
+    pub fn reject_pending(ctx: Context<RejectPending>, nonce: u64) -> Result<()> {
+        instructions::reject_pending::handle_reject_pending(ctx, nonce)
+    }
 }

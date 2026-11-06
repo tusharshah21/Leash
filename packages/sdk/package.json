@@ -1,0 +1,7 @@
+{
+  "name": "@leash/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "license": "ISC",
+  "main": "src/tier.ts"
+}

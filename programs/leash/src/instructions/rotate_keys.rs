@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{KeysRotated, LeashError, Vault, VAULT_SEED};
+use crate::{validate_keys, KeysRotated, LeashError, Vault, VAULT_SEED};
 
 #[derive(Accounts)]
 pub struct RotateKeys<'info> {
@@ -24,23 +24,26 @@ pub fn handle_rotate_keys(
 ) -> Result<()> {
     let vault = &mut ctx.accounts.vault;
 
-    if let Some(agent) = new_agent {
-        // Pause first, so a leaked agent key has no window while it is being replaced.
+    // Pause first, so a leaked agent key has no window while it is being replaced.
+    if new_agent.is_some() {
         require!(vault.paused, LeashError::VaultNotPaused);
-        vault.agent = agent;
     }
-    if let Some(guard) = new_guard {
-        vault.guard = guard;
-    }
-    if let Some(device) = new_device {
-        vault.device = device;
-    }
+
+    let agent = new_agent.unwrap_or(vault.agent);
+    let guard = new_guard.unwrap_or(vault.guard);
+    let device = new_device.unwrap_or(vault.device);
+    // Checks the resulting set, so a rotation cannot collide with a key it left unchanged.
+    validate_keys(&vault.owner, &agent, &guard, device.as_ref())?;
+
+    vault.agent = agent;
+    vault.guard = guard;
+    vault.device = device;
 
     emit!(KeysRotated {
         vault: vault.key(),
-        agent: vault.agent,
-        guard: vault.guard,
-        device: vault.device,
+        agent,
+        guard,
+        device,
     });
     Ok(())
 }

@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-use crate::{Vault, VaultInitialized, VAULT_SEED, VAULT_TOKEN_SEED};
+use crate::{validate_keys, Vault, VaultInitialized, VAULT_SEED, VAULT_TOKEN_SEED};
 
 #[derive(Accounts)]
 pub struct InitVault<'info> {
@@ -40,6 +40,8 @@ pub fn handle_init_vault(
     guard: Pubkey,
     device: Option<Pubkey>,
 ) -> Result<()> {
+    validate_keys(&ctx.accounts.owner.key(), &agent, &guard, device.as_ref())?;
+
     let vault = &mut ctx.accounts.vault;
     vault.owner = ctx.accounts.owner.key();
     vault.agent = agent;

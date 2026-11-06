@@ -3,6 +3,32 @@ use anchor_spl::token::{transfer_checked, Mint, Token, TokenAccount, TransferChe
 
 use crate::{LeashError, Vault, Withdrawn, VAULT_SEED};
 
+/// The one path funds leave the vault: withdraw, agent_execute and approve_pending all use it.
+pub fn transfer_from_vault<'info>(
+    vault: &Account<'info, Vault>,
+    vault_token_account: &Account<'info, TokenAccount>,
+    mint: &Account<'info, Mint>,
+    to: &Account<'info, TokenAccount>,
+    token_program: &Program<'info, Token>,
+    amount: u64,
+) -> Result<()> {
+    let signer_seeds: &[&[&[u8]]] = &[&[VAULT_SEED, vault.owner.as_ref(), &[vault.bump]]];
+    transfer_checked(
+        CpiContext::new_with_signer(
+            token_program.key(),
+            TransferChecked {
+                from: vault_token_account.to_account_info(),
+                mint: mint.to_account_info(),
+                to: to.to_account_info(),
+                authority: vault.to_account_info(),
+            },
+            signer_seeds,
+        ),
+        amount,
+        mint.decimals,
+    )
+}
+
 // Deliberately has no paused check: the owner can always pull funds during an incident.
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
@@ -31,26 +57,17 @@ pub struct Withdraw<'info> {
 pub fn handle_withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     require!(amount > 0, LeashError::InvalidAmount);
 
-    let vault = &ctx.accounts.vault;
-    let signer_seeds: &[&[&[u8]]] = &[&[VAULT_SEED, vault.owner.as_ref(), &[vault.bump]]];
-
-    transfer_checked(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.key(),
-            TransferChecked {
-                from: ctx.accounts.vault_token_account.to_account_info(),
-                mint: ctx.accounts.mint.to_account_info(),
-                to: ctx.accounts.owner_token_account.to_account_info(),
-                authority: vault.to_account_info(),
-            },
-            signer_seeds,
-        ),
+    transfer_from_vault(
+        &ctx.accounts.vault,
+        &ctx.accounts.vault_token_account,
+        &ctx.accounts.mint,
+        &ctx.accounts.owner_token_account,
+        &ctx.accounts.token_program,
         amount,
-        ctx.accounts.mint.decimals,
     )?;
 
     emit!(Withdrawn {
-        vault: vault.key(),
+        vault: ctx.accounts.vault.key(),
         amount,
     });
     Ok(())
