@@ -12,4 +12,3 @@ Built for the MLH Solana Hackathon, November 2026. Contributor setup and command
 
 - **Multiple mints per owner.** Today each owner has one vault and one mint (dUSDC), because vault seeds are `["vault", owner]`. The upgrade path is to add the mint to the seeds: `["vault", owner, mint]`.
 - **`close_vault`.** Today a vault cannot be closed. Closing would return rent and free the owner's vault address.
-- **Reclaiming rent from settled PendingActions.** Today they stay onchain as an audit trail, and the rent the agent paid stays locked.

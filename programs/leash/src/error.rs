@@ -34,4 +34,6 @@ pub enum LeashError {
     RecipientMismatch,
     #[msg("Arithmetic overflow")]
     MathOverflow,
+    #[msg("Pending action is still pending: approve or reject it first")]
+    PendingStillActive,
 }

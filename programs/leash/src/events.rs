@@ -99,3 +99,9 @@ pub struct ActionRejected {
     pub nonce: u64,
     pub approver: Pubkey,
 }
+
+#[event]
+pub struct PendingClosed {
+    pub vault: Pubkey,
+    pub nonce: u64,
+}

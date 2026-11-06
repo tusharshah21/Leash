@@ -129,7 +129,7 @@ pub struct PendingAction {
 }
 
 impl PendingAction {
-    /// Gate shared by approve_pending and reject_pending.
+    /// Gate for approve_pending. reject_pending checks only the status, so stale actions can go.
     pub fn check_open(&self, ttl_secs: i64, now: i64) -> Result<()> {
         let expires_at = self
             .created_at

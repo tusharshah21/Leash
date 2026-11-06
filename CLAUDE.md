@@ -29,7 +29,7 @@ Onchain firewall for AI agents, built for the MLH Solana Hackathon (Nov 6-8, 202
 
 | Signer | Instructions |
 |---|---|
-| Owner | `init_vault`, `set_mandate`, `add_recipient`, `remove_recipient`, `deposit`, `withdraw`, `unpause`, `rotate_keys` |
+| Owner | `init_vault`, `set_mandate`, `add_recipient`, `remove_recipient`, `deposit`, `withdraw`, `unpause`, `rotate_keys`, `close_pending` |
 | Owner or device | `revoke_agent`, `approve_pending`, `reject_pending` |
 | Agent | `agent_execute` (plus the guard for MEDIUM), `agent_propose` |
 
@@ -68,10 +68,11 @@ Onchain firewall for AI agents, built for the MLH Solana Hackathon (Nov 6-8, 202
 | 6008 | `InvalidAmount` | Amount is zero |
 | 6009 | `KeyReuseNotAllowed` | Agent, guard and device not distinct, or agent or guard equals owner |
 | 6010 | `RequiresApproval` | `agent_execute` over `per_tx_max` or `per_recipient_cap` |
-| 6011 | `PendingExpired` | Approve or reject after `created_at + pending_ttl_secs` |
+| 6011 | `PendingExpired` | Approve after `created_at + pending_ttl_secs` |
 | 6012 | `PendingNotActive` | Approve or reject when status is not `Pending` |
 | 6013 | `RecipientMismatch` | Approve to a token account with the wrong owner or mint |
 | 6014 | `MathOverflow` | Checked arithmetic overflowed |
+| 6015 | `PendingStillActive` | Close while status is still `Pending` |
 
 ### Compute units
 
@@ -113,6 +114,12 @@ anchor build
 anchor test
 ```
 ```bash
+pnpm test:fast
+```
+```bash
+pnpm test:all
+```
+```bash
 pnpm test:sdk
 ```
 ```bash
@@ -125,7 +132,7 @@ anchor keys sync
 anchor deploy --provider.cluster devnet
 ```
 
-`anchor test` takes about 7 minutes, because two tests wait out the 60-second minimum durations in real time. It also runs the SDK tests, and it stops the validator when it finishes. `pnpm test:sdk` runs alone in under a second.
+`pnpm test:fast` (plain `anchor test`) takes about 70 seconds and skips the two tests that wait out the 60-second minimum durations. `pnpm test:all` sets `RUN_SLOW=1` to include them and takes about 3 minutes. Both also run the SDK tests and stop the validator when they finish. `pnpm test:sdk` runs alone in under a second.
 
 The program keypair is `target/deploy/leash-keypair.json`, which is gitignored. Back it up: deleting `target/` without a copy changes the program ID.
 
@@ -168,11 +175,12 @@ Newest last.
 17. **`agent_propose` accepts anything,** including amounts that would be LOW or MEDIUM and recipients not on the allowlist: the agent may always escalate, and a proposal moves no funds until a human approves it. The agent pays the rent.
 18. **`pending_ttl_secs` makes pending expiry testable.** The default is 24 hours and the minimum 60 seconds. The legacy validator has no clock control, so `expired_pending_cannot_be_approved` sets the minimum and waits it out. The value is read at approval time, so the owner can extend or shorten it for outstanding proposals, including reviving an expired one; the owner has that authority anyway.
 19. **Human approval may exceed `daily_cap`,** because a human chose to. `spent_today` uses `saturating_add`, and stays over the cap, so agent spending is blocked until the window resets.
-20. **Human authority survives a pause and an expired mandate.** `approve_pending` and `reject_pending` check neither. Reject does respect the TTL, so an expired action stays `Pending` forever; it can never move funds.
+20. **Human authority survives a pause and an expired mandate.** `approve_pending` and `reject_pending` check neither. Only approve respects the TTL: an expired action can never move funds, but it can still be rejected, so stale proposals can be cleaned up.
 21. **`approve_pending` rolls an elapsed window first,** so the spend counts against the current window and not one that has ended.
 22. **`window_secs` and `pending_ttl_secs` came out of `_reserved`.** A compile-time assert pins `Mandate::INIT_SPACE` at 113. The window is fixed rather than sliding: it restarts on the first agent action or approval after it ends.
 23. **The four action events carry a `vault` field,** like every other event, so a dashboard can attribute them.
-24. **PendingActions are never closed.** Their rent stays locked, which is cheap and keeps the audit trail. The agent pays it, so it can only spam proposals with its own SOL. Reclaiming rent is on the README roadmap.
+24. **`close_pending` sends rent to the owner, not the agent that paid it.** `PendingAction` stores no payer and has no `_reserved`, and a refund to the payer would hand SOL to a leaked agent key. The owner funds the agent anyway. Only `Executed` and `Rejected` actions can close; an expired one must be rejected first. The audit trail survives in the transaction history and the `PendingClosed` event.
+25. **The test validator runs 50 ms slots (`ticks_per_slot = 8`),** which cut the fast suite from about 5 minutes to about 70 seconds. It requires two settings in `tests/helpers.ts`: web3.js's 30-second blockhash cache must be off, because 30 seconds is now past a blockhash's 150-slot lifetime, and the connection must use `confirmed`, because a fresh `processed` blockhash is ahead of the bank preflight simulates against. Both surface as `Blockhash not found`.
 
 ## Phase status
 

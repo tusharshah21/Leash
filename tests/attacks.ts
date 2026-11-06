@@ -8,6 +8,7 @@ import {
   clockNow,
   computeUnits,
   CONFIRMED,
+  connection,
   Ctx,
   deposit,
   eventOf,
@@ -23,6 +24,7 @@ import {
   revoke,
   rotate,
   setMandate,
+  slowIt,
   tokenAccount,
   unpause,
   units,
@@ -118,7 +120,17 @@ const reject = (v: Ctx, nonce: BN, signer: Keypair = v.owner) =>
     .accountsPartial({
       authority: signer.publicKey,
       vault: v.vault,
-      mandate: pda("mandate", v.vault),
+      pendingAction: pendingPda(v.vault, nonce),
+    })
+    .signers([signer])
+    .rpc(CONFIRMED);
+
+const closePending = (v: Ctx, nonce: BN, signer: Keypair = v.owner) =>
+  program.methods
+    .closePending(nonce)
+    .accountsPartial({
+      owner: signer.publicKey,
+      vault: v.vault,
       pendingAction: pendingPda(v.vault, nonce),
     })
     .signers([signer])
@@ -309,7 +321,7 @@ describe("Attacks", () => {
     await expectFunds(v, VAULT_BALANCE - DAILY, DAILY);
   });
 
-  it("daily_cap_resets_after_window", async () => {
+  slowIt("daily_cap_resets_after_window", async () => {
     const v = await armed({ windowSecs: new BN(60) });
     await pay(v, USDC(PER_TX), { guard: v.guard });
     await pay(v, USDC(DAILY - PER_TX), { guard: v.guard });
@@ -550,17 +562,76 @@ describe("Approvals", () => {
 
   // The legacy validator has no clock control, so this uses the minimum pending_ttl_secs and
   // really waits it out. See Decision 18 in CLAUDE.md.
-  it("expired_pending_cannot_be_approved", async () => {
+  slowIt("expired_pending_cannot_be_approved", async () => {
     const v = await armed({ pendingTtlSecs: new BN(60) });
     const { nonce } = await propose(v, USDC(PER_TX), v.recipient);
     const { createdAt } = await pendingOf(v, nonce);
     await waitForClock(createdAt.toNumber() + 61);
 
     await expectError(approve(v, nonce), "PendingExpired");
-    await expectError(reject(v, nonce), "PendingExpired");
-
     await expectFunds(v, VAULT_BALANCE, 0);
     expect((await pendingOf(v, nonce)).status).to.deep.equal({ pending: {} });
+
+    // A stale proposal can still be cleaned up.
+    await expectError(closePending(v, nonce), "PendingStillActive");
+    await reject(v, nonce);
+    expect((await pendingOf(v, nonce)).status).to.deep.equal({ rejected: {} });
+    await closePending(v, nonce);
+    await expectFunds(v, VAULT_BALANCE, 0);
+  });
+
+  it("cannot_close_active_pending", async () => {
+    const v = await armed();
+    const { nonce } = await propose(v, USDC(PER_TX), v.recipient);
+
+    await expectError(closePending(v, nonce), "PendingStillActive");
+
+    expect((await pendingOf(v, nonce)).status).to.deep.equal({ pending: {} });
+    await approve(v, nonce);
+    await expectFunds(v, VAULT_BALANCE - PER_TX, PER_TX);
+  });
+
+  it("close_returns_rent", async () => {
+    const v = await armed();
+    const { nonce } = await propose(v, USDC(PER_TX), v.recipient);
+    await reject(v, nonce);
+    const account = pendingPda(v.vault, nonce);
+    const rent = await connection.getBalance(account, "confirmed");
+    const before = await connection.getBalance(v.owner.publicKey, "confirmed");
+    expect(rent).to.be.greaterThan(0);
+
+    const sig = await closePending(v, nonce); // the provider wallet pays the fee
+
+    expect(await connection.getBalance(v.owner.publicKey, "confirmed")).to.equal(before + rent);
+    expect(await connection.getAccountInfo(account, "confirmed")).to.equal(null);
+    const event = await eventOf(sig, "pendingClosed");
+    expect(event.nonce.toString()).to.equal(nonce.toString());
+    expect(event.vault.toBase58()).to.equal(v.vault.toBase58());
+  });
+
+  it("non_owner_cannot_close_pending", async () => {
+    const v = await armed();
+    const { nonce } = await propose(v, USDC(PER_TX), v.recipient);
+    await reject(v, nonce);
+    const attacker = await funded();
+
+    await expectError(closePending(v, nonce, attacker), "Unauthorized");
+    await expectError(closePending(v, nonce, v.device!), "Unauthorized");
+    await expectError(closePending(v, nonce, v.agent), "Unauthorized");
+
+    expect((await pendingOf(v, nonce)).status).to.deep.equal({ rejected: {} });
+  });
+
+  it("closed_pending_cannot_be_approved", async () => {
+    const v = await armed();
+    const { nonce } = await propose(v, USDC(PER_TX), v.recipient);
+    await approve(v, nonce);
+    await closePending(v, nonce);
+
+    await expectError(approve(v, nonce), "AccountNotInitialized");
+    await expectError(closePending(v, nonce), "AccountNotInitialized");
+
+    await expectFunds(v, VAULT_BALANCE - PER_TX, PER_TX);
   });
 
   it("approve_to_wrong_recipient_account_fails", async () => {

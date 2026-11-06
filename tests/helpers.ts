@@ -1,7 +1,13 @@
 import * as anchor from "@anchor-lang/core";
 import { BN, BorshCoder, EventParser, Program } from "@anchor-lang/core";
 import { createAssociatedTokenAccount, createMint, getAccount, mintTo } from "@solana/spl-token";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
+} from "@solana/web3.js";
 import { expect } from "chai";
 import { Leash } from "../target/types/leash";
 
@@ -15,7 +21,16 @@ export const REASON = Array.from(Buffer.alloc(32, 9));
 // the simulation runs against a bank too old to know the fresh blockhash.
 export const CONFIRMED = { commitment: "confirmed", preflightCommitment: "confirmed" } as const;
 
-export const provider = anchor.AnchorProvider.env();
+// With 50 ms slots (Anchor.toml), blockhashes need care. web3.js caches one for 30 seconds, which
+// is now past its 150-slot lifetime, so the cache stays off. Fresh ones must also come from
+// `confirmed`: a `processed` one is ahead of the bank that preflight simulates against.
+const env = anchor.AnchorProvider.env();
+export const provider = new anchor.AnchorProvider(
+  new Connection(env.connection.rpcEndpoint, "confirmed"),
+  env.wallet,
+  CONFIRMED
+);
+(provider.connection as any)._disableBlockhashCaching = true;
 anchor.setProvider(provider);
 export const program = anchor.workspace.leash as Program<Leash>;
 export const connection = provider.connection;
@@ -27,6 +42,9 @@ export let mint: PublicKey;
 before(async () => {
   mint = await createMint(connection, payer, payer.publicKey, null, 6, undefined, CONFIRMED);
 });
+
+/** A test that waits on the real clock. Skipped unless RUN_SLOW=1 (`pnpm test:all`). */
+export const slowIt = process.env.RUN_SLOW === "1" ? it : it.skip;
 
 export const pda = (...seeds: (string | PublicKey | Buffer)[]) =>
   PublicKey.findProgramAddressSync(

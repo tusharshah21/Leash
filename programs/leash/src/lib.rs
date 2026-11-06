@@ -93,4 +93,8 @@ pub mod leash {
     pub fn reject_pending(ctx: Context<RejectPending>, nonce: u64) -> Result<()> {
         instructions::reject_pending::handle_reject_pending(ctx, nonce)
     }
+
+    pub fn close_pending(ctx: Context<ClosePending>, nonce: u64) -> Result<()> {
+        instructions::close_pending::handle_close_pending(ctx, nonce)
+    }
 }
