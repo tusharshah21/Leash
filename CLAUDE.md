@@ -138,7 +138,8 @@ The program keypair is `target/deploy/leash-keypair.json`, which is gitignored. 
 - Tests use the helpers in `tests/helpers.ts`, which carry the commitment fixes from Decision 12. Wait on the cluster's clock with `waitForClock`, not a fixed sleep.
 - Keep secrets out of git: `.env*` and keypair JSON files are ignored. Check `git ls-files` before committing.
 - Prose: no em dashes, and no hard-wrapped Markdown paragraphs.
-- Commits: conventional style, no AI attribution. The developer pushes; never run `git push`.
+- Commits: conventional style, no AI attribution.
+- Pushing: Claude may push to this repo's `origin` (`tusharshah21/Leash`) when asked, by the developer's explicit grant for this project only. Never force push. WSL has no GitHub credentials of its own, so pass Git Credential Manager from Windows for the push: `git -c credential.helper= -c "credential.helper=/mnt/c/Users/tushar.kumar/AppData/Local/Programs/Git/mingw64/bin/git-credential-manager.exe" push`.
 
 ## Decisions
 
