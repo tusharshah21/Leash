@@ -101,6 +101,9 @@ Windows host, WSL distro `Ubuntu-24.04`, user `tushar`, repo at `/home/tushar/pr
 
 `~/.bashrc` sets `ANCHOR_TEST_VALIDATOR=legacy` (Anchor 1.x otherwise runs tests on Surfpool) and `CARGO_BUILD_JOBS=2` (the laptop has limited RAM).
 
+- browserWallet: `J2nBcSoqjH662JZ5U2uTVb1QuaDir8e6kkKaswrtEukq` (devnet, Phantom)
+- LLM provider: OpenAI
+
 ## Commands
 
 ```bash
