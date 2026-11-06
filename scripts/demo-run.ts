@@ -1,8 +1,10 @@
 // Starts the guard, runs the agent over each scenario, probes the chain directly, and prints the
 // scoreboard. Exits non-zero if the outcome differs from what the scenarios expect.
+// pnpm demo:run [--vault <address>]: any vault whose agent and guard are the demo keys.
 import { strict as assert } from "node:assert";
 import { type ChildProcess, spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { parseArgs } from "node:util";
 import {
   type ActivityEntry,
   LeashClient,
@@ -11,8 +13,23 @@ import {
   verifyReasoning,
 } from "@leash/sdk";
 import { getAccount } from "@solana/spl-token";
-import { PublicKey } from "@solana/web3.js";
-import { connection, demoKey, DEVNET_JSON, providerFor, txLink } from "./common.ts";
+import {
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
+import { appendActivity } from "@leash/sdk/node";
+import {
+  addressLink,
+  cliWallet,
+  connection,
+  demoKey,
+  DEVNET_JSON,
+  providerFor,
+  txLink,
+} from "./common.ts";
 
 const SCENARIOS = ["main", "variant-4b"];
 const PORT = process.env.GUARD_PORT || "8787";
@@ -20,9 +37,43 @@ const GUARD_URL = `http://127.0.0.1:${PORT}`;
 const PROBE_AMOUNT = 150_000_000n;
 
 const demo = JSON.parse(readFileSync(DEVNET_JSON, "utf8"));
-if (!demo.demoVault) throw new Error("Run pnpm demo:fresh first");
-const owner = new PublicKey(demo.demoVault.owner);
+const vaultArg = parseArgs({ options: { vault: { type: "string" } } }).values.vault;
+if (!vaultArg && !demo.demoVault) throw new Error("Run pnpm demo:fresh first, or pass --vault");
+const agentKey = demoKey("agent");
+const agentClient = vaultArg
+  ? await LeashClient.forVault(providerFor(agentKey), new PublicKey(vaultArg))
+  : new LeashClient(providerFor(agentKey), new PublicKey(demo.demoVault.owner));
 const runId = `run-${Date.now()}`;
+process.env.LEASH_RUN_ID = runId;
+
+const vaultState = await agentClient.fetchVault();
+if (!vaultState.agent.equals(agentKey.publicKey)) {
+  throw new Error("This vault's agent is not keys/agent.json, so the demo cannot pay from it");
+}
+
+// Each proposal costs the agent rent, so a vault made in the wizard may find it low.
+const AGENT_MIN_LAMPORTS = 0.005 * LAMPORTS_PER_SOL;
+const AGENT_TARGET_LAMPORTS = 0.02 * LAMPORTS_PER_SOL;
+const agentLamports = await connection.getBalance(agentKey.publicKey);
+if (agentLamports < AGENT_MIN_LAMPORTS) {
+  const payer = cliWallet();
+  await sendAndConfirmTransaction(
+    connection,
+    new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: agentKey.publicKey,
+        lamports: AGENT_TARGET_LAMPORTS - agentLamports,
+      })
+    ),
+    [payer],
+    { commitment: "confirmed" }
+  );
+  console.log("Topped the agent up");
+}
+
+const mandateBefore = await agentClient.fetchMandate();
+const allowlist = await agentClient.fetchAllowlist();
 
 // Each child gets only what it needs. Neither inherits the deploy wallet's path or the other's key.
 const childEnv = {
@@ -31,7 +82,7 @@ const childEnv = {
   LEASH_RPC_URL: process.env.LEASH_RPC_URL,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   OPENAI_MODEL: process.env.OPENAI_MODEL,
-  LEASH_VAULT_OWNER: owner.toBase58(),
+  LEASH_VAULT: agentClient.vault.toBase58(),
   LEASH_RUN_ID: runId,
   LEASH_LOG_DIR: process.env.LEASH_LOG_DIR,
 };
@@ -79,6 +130,11 @@ interface Scenario {
 }
 
 const failures: string[] = [];
+for (const v of demo.vendors) {
+  if (!allowlist.some((e) => e.recipient.toBase58() === v.address)) {
+    failures.push(`${v.name} is not on this vault's allowlist`);
+  }
+}
 const scenarios: Scenario[] = SCENARIOS.map((name) =>
   JSON.parse(readFileSync(`demo/scenarios/${name}.json`, "utf8"))
 );
@@ -106,7 +162,6 @@ guard.kill();
 
 // What a stolen agent key could try: skip the SDK's routing and call agent_execute directly.
 console.log("\n=== Bypass probe: direct agent_execute to the attacker ===");
-const agentClient = new LeashClient(providerFor(demoKey("agent")), owner);
 let probe: LeashTxError | undefined;
 try {
   await agentClient.execute({
@@ -118,6 +173,16 @@ try {
 } catch (err) {
   probe = err as LeashTxError;
 }
+appendActivity({
+  actor: "demo",
+  kind: "probe",
+  vault: agentClient.vault.toBase58(),
+  amount: PROBE_AMOUNT.toString(),
+  recipient: demo.attacker.address,
+  reasoning: "bypass probe",
+  txSig: probe?.signature,
+  error: probe?.code,
+});
 if (!probe) failures.push("probe: the transaction succeeded");
 else if (probe.code !== "NotAllowlisted") failures.push(`probe: failed with ${probe.message}`);
 
@@ -179,9 +244,15 @@ for (const entry of landed) {
 const attackerAfter = await attackerBalance();
 if (attackerAfter !== attackerBefore) failures.push("the attacker's balance changed");
 
-const { spentToday, dailyCap } = await agentClient.fetchMandate();
-if (Number(spentToday) !== paidTotal.value) {
-  failures.push(`spent_today is ${spentToday}, but the log shows ${paidTotal.value} paid`);
+const { spentToday, dailyCap, windowStart } = await agentClient.fetchMandate();
+const windowRolled = !windowStart.eq(mandateBefore.windowStart);
+const spentBefore = windowRolled ? 0 : Number(mandateBefore.spentToday);
+if (Number(spentToday) - spentBefore !== paidTotal.value) {
+  failures.push(
+    `spent_today rose by ${Number(spentToday) - spentBefore}, but the log shows ${
+      paidTotal.value
+    } paid`
+  );
 }
 
 const usage = everything.filter((e) => e.kind === "usage");
@@ -200,7 +271,7 @@ const show = (title: string, list: ActivityEntry[]) => {
 
 const total = outcome(everything);
 console.log("\n=========== SCOREBOARD ===========");
-console.log(`Vault: ${demo.demoVault.explorer}`);
+console.log(`Vault: ${addressLink(agentClient.vault)}`);
 show("Paid", total.paid);
 show("Pending (human approves)", total.pending);
 console.log(`\nBlocked by chain: 1 (bypass probe)`);

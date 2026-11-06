@@ -79,10 +79,15 @@ export interface ToolDeps {
     proposal: { recipient: string; amount: string; memo: string; reasoning: string },
     onDecision: (decision: GuardDecision) => void
   ): TxSigner;
+  /** Optional, advisory guard review of a proposal. */
+  review?(
+    proposal: { recipient: string; amount: string; memo: string; reasoning: string },
+    nonce: string
+  ): Promise<{ risk?: number; rationale?: string }>;
   log(line: string): void;
 }
 
-export function makeTools({ client, invoicesDir, makeGuard, log }: ToolDeps) {
+export function makeTools({ client, invoicesDir, makeGuard, review, log }: ToolDeps) {
   async function pay(a: { recipient: string; amount: number; memo: string; reasoning: string }) {
     const amount = toBaseUnits(a.amount);
     const recipient = new PublicKey(a.recipient);
@@ -95,6 +100,7 @@ export function makeTools({ client, invoicesDir, makeGuard, log }: ToolDeps) {
     const entry = {
       actor: "agent" as const,
       kind: "pay",
+      vault: client.vault.toBase58(),
       ...proposal,
       reasonHash: hex(reasonHash(a.reasoning)),
     };
@@ -105,9 +111,22 @@ export function makeTools({ client, invoicesDir, makeGuard, log }: ToolDeps) {
       const result = await client.act(amount, recipient, a.reasoning, {
         guard: makeGuard(proposal, (d) => (decision = d)),
       });
-      appendActivity({ ...entry, ...fromGuard(), tier: result.tier, txSig: result.signature });
+      const nonce = result.tier === "HIGH" ? result.nonce.toString() : undefined;
+      appendActivity({
+        ...entry,
+        ...fromGuard(),
+        tier: result.tier,
+        txSig: result.signature,
+        nonce,
+      });
       const status = result.tier === "HIGH" ? "pending human approval" : "paid";
       log(`  ${result.tier}: ${status}. ${txLink(result.signature)}`);
+      if (nonce && review) {
+        await review(proposal, nonce).then(
+          (r) => log(`  Guard review, risk ${r.risk ?? "-"}: ${r.rationale ?? ""}`),
+          (err) => log(`  Guard review unavailable: ${describeError(err)}`)
+        );
+      }
       return { status, tier: result.tier, signature: result.signature };
     } catch (err) {
       const error = describeError(err);

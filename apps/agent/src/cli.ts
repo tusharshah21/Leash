@@ -1,18 +1,21 @@
-// pnpm agent "<task>". Holds only the agent key.
-import { LeashClient } from "@leash/sdk";
-import { appendActivity, providerFor, readKeypair, redact, vaultOwner } from "@leash/sdk/node";
+// pnpm agent [--vault <address>] "<task>". Holds only the agent key.
+import { parseArgs } from "node:util";
+import { appendActivity, clientFor, readKeypair, redact } from "@leash/sdk/node";
 import OpenAI from "openai";
-import { guardSigner } from "./guard-client.ts";
+import { guardSigner, requestReview } from "./guard-client.ts";
 import { runLoop } from "./loop.ts";
 import { definitions, makeTools } from "./tools.ts";
 
-const task = process.argv.slice(2).join(" ").trim();
-if (!task) throw new Error('Usage: pnpm agent "<task>"');
+const args = parseArgs({ allowPositionals: true, options: { vault: { type: "string" } } });
+const task = args.positionals.join(" ").trim();
+if (!task) throw new Error('Usage: pnpm agent [--vault <address>] "<task>"');
+if (args.values.vault) process.env.LEASH_VAULT = args.values.vault;
 const model = process.env.OPENAI_MODEL;
 if (!model) throw new Error("Set OPENAI_MODEL");
 
 const agent = readKeypair(process.env.AGENT_KEY_FILE || "keys/agent.json");
-const client = new LeashClient(providerFor(agent), vaultOwner());
+const client = await clientFor(agent);
+const guardUrl = process.env.GUARD_URL || "http://127.0.0.1:8787";
 const { guard } = await client.fetchVault();
 if (!guard) throw new Error("The vault has no guard key");
 const log = (line: string) => console.log(redact(line));
@@ -23,10 +26,11 @@ log(`Task: ${task}\n`);
 const run = makeTools({
   client,
   invoicesDir: process.env.LEASH_INVOICES_DIR || "demo/invoices",
+  review: (proposal, nonce) => requestReview(guardUrl, { userTask: task, proposal, nonce }),
   log,
   makeGuard: (proposal, onDecision) =>
     guardSigner({
-      url: process.env.GUARD_URL || "http://127.0.0.1:8787",
+      url: guardUrl,
       agent,
       guard,
       userTask: task,

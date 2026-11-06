@@ -3,7 +3,7 @@ import type { AnchorProvider, Program as AnchorProgram } from "@anchor-lang/core
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction } from "@solana/web3.js";
 import { BN, Program, utils } from "./anchor.js";
-import { LeashTxError } from "./errors.js";
+import { errorName, LeashTxError } from "./errors.js";
 import { type LeashEvent, parseEvents } from "./events.js";
 import { IDL, type Leash } from "./idl.js";
 import { classifyTier, patchClearDevice, type Tier } from "./tier.js";
@@ -51,6 +51,23 @@ export interface ExecuteParams {
   skipPreflight?: boolean;
 }
 
+/** One signature that mentions a vault. */
+export interface HistoryItem {
+  signature: string;
+  blockTime: number | null;
+  failed: boolean;
+  events: LeashEvent[];
+  /** Set when this is a failed agent_execute: what it tried, and why the program refused. */
+  attempt?: { amount: string; recipientTokenAccount: string; error?: string };
+}
+
+const EXECUTE_DISCRIMINATOR = Buffer.from(
+  (
+    IDL as unknown as { instructions: { name: string; discriminator: number[] }[] }
+  ).instructions.find((ix) => ix.name === "agent_execute")!.discriminator
+);
+const RECIPIENT_TOKEN_INDEX = 6;
+
 export type ActResult =
   | { tier: "LOW" | "MEDIUM"; signature: string }
   | { tier: "HIGH"; signature: string; nonce: bigint };
@@ -70,6 +87,12 @@ export class LeashClient {
     this.vault = vaultPda(owner);
     this.mandate = mandatePda(this.vault);
     this.vaultToken = vaultTokenPda(this.vault);
+  }
+
+  /** A client for a vault by address, when you do not know its owner. */
+  static async forVault(provider: AnchorProvider, vault: PublicKey) {
+    const { owner } = await new Program<Leash>(IDL, provider).account.vault.fetch(vault);
+    return new LeashClient(provider, owner);
   }
 
   private get signer() {
@@ -299,6 +322,58 @@ export class LeashClient {
     }
     return events.slice(0, limit);
   }
+
+  /**
+   * Every recent transaction on this vault, newest first, including failed ones, which carry no
+   * events. Pass the same cache to later calls so they only fetch what is new.
+   */
+  async fetchHistory(limit: number, cache = new Map<string, HistoryItem>()) {
+    const signatures = await this.connection.getSignaturesForAddress(
+      this.vault,
+      { limit },
+      "confirmed"
+    );
+    const items: HistoryItem[] = [];
+    for (const { signature, err, blockTime } of signatures) {
+      let item = cache.get(signature);
+      if (!item) {
+        const tx = await this.connection.getTransaction(signature, {
+          commitment: "confirmed",
+          maxSupportedTransactionVersion: 0,
+        });
+        if (!tx) continue; // Not indexed yet. The next refresh picks it up.
+        const logs = tx.meta?.logMessages ?? [];
+        item = {
+          signature,
+          blockTime: blockTime ?? null,
+          failed: err !== null,
+          events: parseEvents(this.program, logs, signature).filter((e) => this.isOurs(e)),
+        };
+        if (err !== null) {
+          const message = tx.transaction.message;
+          for (const ix of message.compiledInstructions) {
+            const data = Buffer.from(ix.data);
+            const isExecute =
+              message.staticAccountKeys[ix.programIdIndex].equals(PROGRAM_ID) &&
+              data.subarray(0, 8).equals(EXECUTE_DISCRIMINATOR);
+            if (!isExecute) continue;
+            item.attempt = {
+              amount: data.readBigUInt64LE(8).toString(),
+              recipientTokenAccount:
+                message.staticAccountKeys[ix.accountKeyIndexes[RECIPIENT_TOKEN_INDEX]].toBase58(),
+              error: errorName({ logs, message: JSON.stringify(err) }),
+            };
+          }
+        }
+        cache.set(signature, item);
+      }
+      items.push(item);
+    }
+    return items;
+  }
+
+  /** Signs as this client's wallet, sends and confirms a transaction built elsewhere. */
+  sendTx = (tx: Transaction) => this.send(tx);
 
   private isOurs(event: LeashEvent) {
     return event.data.vault.equals(this.vault);

@@ -18,6 +18,21 @@ export interface GuardSignerOptions {
   onDecision(decision: GuardDecision): void;
 }
 
+/** Asks the guard to review a proposal for the human. Advisory, so a failure changes nothing. */
+export async function requestReview(
+  url: string,
+  body: { userTask: string; proposal: GuardSignerOptions["proposal"]; nonce: string }
+) {
+  const res = await fetch(new URL("/review", url), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = (await res.json()) as { risk?: number; rationale?: string };
+  if (!res.ok) throw new Error(result.rationale ?? `HTTP ${res.status}`);
+  return result;
+}
+
 export const guardSigner = (o: GuardSignerOptions): TxSigner => ({
   publicKey: o.guard,
   async signTransaction(tx) {

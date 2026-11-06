@@ -7,8 +7,8 @@
     "node": "22.22.3"
   },
   "scripts": {
-    "lint:fix": "prettier \"tests/**/*.ts\" \"scripts/**/*.ts\" \"packages/**/*.ts\" \"apps/**/*.ts\" --print-width 100 -w",
-    "lint": "prettier \"tests/**/*.ts\" \"scripts/**/*.ts\" \"packages/**/*.ts\" \"apps/**/*.ts\" --print-width 100 --check",
+    "lint:fix": "prettier \"tests/**/*.ts\" \"scripts/**/*.ts\" \"packages/**/*.ts\" \"apps/**/*.{ts,tsx}\" --print-width 100 -w",
+    "lint": "prettier \"tests/**/*.ts\" \"scripts/**/*.ts\" \"packages/**/*.ts\" \"apps/**/*.{ts,tsx}\" --print-width 100 --check",
     "test:fast": "anchor test",
     "test:all": "RUN_SLOW=1 anchor test",
     "test:sdk": "ts-mocha -p ./tsconfig.json \"packages/sdk/test/**/*.ts\"",
@@ -17,12 +17,15 @@
     "bootstrap:devnet": "node --env-file-if-exists=.env scripts/bootstrap-devnet.ts",
     "smoke:devnet": "node --env-file-if-exists=.env scripts/smoke-devnet.ts",
     "test:apps": "node --env-file-if-exists=.env --test \"apps/*/test/*.test.ts\"",
-    "typecheck": "tsc -p apps/guard/tsconfig.json && tsc -p apps/agent/tsconfig.json && tsc -p scripts/tsconfig.json",
+    "typecheck": "tsc -p apps/guard/tsconfig.json && tsc -p apps/agent/tsconfig.json && tsc -p scripts/tsconfig.json && tsc -p apps/web/tsconfig.json",
     "agent": "node --env-file-if-exists=.env apps/agent/src/cli.ts",
     "guard": "node --env-file-if-exists=.env apps/guard/src/server.ts",
     "gen:invoices": "node --env-file-if-exists=.env scripts/gen-invoices.ts",
     "demo:fresh": "node --env-file-if-exists=.env scripts/demo-fresh.ts",
-    "demo:run": "node --env-file-if-exists=.env scripts/demo-run.ts"
+    "demo:run": "node --env-file-if-exists=.env scripts/demo-run.ts",
+    "demo:faucet": "node --env-file-if-exists=.env scripts/demo-faucet.ts",
+    "demo:snapshot": "node --env-file-if-exists=.env scripts/demo-snapshot.ts",
+    "dev:web": "pnpm --filter web dev"
   },
   "dependencies": {
     "@anchor-lang/core": "1.2.2",

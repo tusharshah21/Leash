@@ -9,10 +9,10 @@ Onchain firewall for AI agents, built for the MLH Solana Hackathon (Nov 6-8, 202
 | `programs/leash` | Phase 3, deployed | The Anchor program |
 | `tests/` | Phase 3 | Mocha tests against a local validator: `helpers.ts` (shared), `leash.ts` (owner paths), `attacks.ts` (tier routing, attacks, approvals) |
 | `packages/sdk` | Phase 4 | The shared client: `LeashClient`, events, error messages, `classifyTier`, `verifyReasoning`. `@leash/sdk/node` adds logging and key loading. See its README |
-| `scripts` | Phase 4 | `deploy-devnet.sh`, `bootstrap-devnet.ts`, `smoke-devnet.ts`, `setup-vault.ts`, `gen-invoices.ts`, `demo-fresh.ts`, `demo-run.ts` |
+| `scripts` | Phase 5 | `deploy-devnet.sh`, `bootstrap-devnet.ts`, `smoke-devnet.ts`, `setup-vault.ts`, `gen-invoices.ts`, `demo-fresh.ts`, `demo-run.ts`, `demo-faucet.ts`, `demo-snapshot.ts` |
 | `apps/agent` | Phase 4 | The executor: OpenAI tool loop, reads untrusted invoices, holds only the agent key |
 | `apps/guard` | Phase 4 | The guard: localhost HTTP service, decodes before signing, holds only the guard key |
-| `apps/web` | Stub | Owner dashboard |
+| `apps/web` | Phase 5 | The console: landing, `/console/[vault]`, `/create`. Pure merge logic in `lib/timeline.ts`. See its README |
 | `apps/mcp` | Stub | MCP server |
 | `device/unoq` | Stub | Hardware device key firmware |
 | `demo` | Phase 4 | `devnet.json` (public addresses), `invoices/` and `scenarios/` (what the agent reads, and the expected outcomes) |
@@ -27,6 +27,8 @@ The guard's `POST /cosign` takes `{ userTask, proposal: { recipient, amount, mem
 2. **Rules** (`rules.ts`). Not paused, mandate unexpired, recipient allowlisted, tier not HIGH, and not a duplicate approved for this vault in the last 24 hours, from `logs/guard.jsonl`: same recipient and amount, with the same normalized memo or under the same task.
 3. **Judge** (`judge.ts`). A separate OpenAI call with its own prompt and a strict schema, `{ verdict, risk, rationale }`. Input is only `userTask`, the proposal and the onchain vendor list, never the invoice.
 4. **Sign.** The decision is logged first, so nothing is signed unlogged.
+
+`POST /review` takes `{ userTask, proposal, nonce }` after a HIGH proposal. It checks the proposal against the onchain PendingAction, runs the rules and the judge, and logs `{ nonce, risk, rationale, findings }` for the pending card. It is advisory: it has no signing path and does not count toward duplicates, and a failed review never affects the proposal.
 
 Logs are gitignored and redacted: `logs/guard.jsonl` (every decision) and `logs/activity.jsonl` (agent and guard, one entry per action, the source for the Phase 5 "verified reasoning" badge through `verifyReasoning`).
 
@@ -199,6 +201,24 @@ pnpm demo:run
 ```bash
 RUN_LLM=1 pnpm test:apps
 ```
+```bash
+pnpm dev:web
+```
+```bash
+pnpm --filter web build
+```
+```bash
+pnpm demo:run --vault <vault>
+```
+```bash
+pnpm agent --vault <vault> "<task>"
+```
+```bash
+pnpm demo:faucet <wallet> <dUSDC> --sol <n>
+```
+```bash
+pnpm demo:snapshot --vault <vault>
+```
 
 The apps run on Node's native TypeScript with `.ts` imports and no build step, but they import the SDK's `dist/`, so run `pnpm build:sdk` first. `pnpm test:apps` needs no network or LLM unless `RUN_LLM=1`. `pnpm demo:fresh` costs about 0.0135 SOL from the CLI wallet. `pnpm demo:run` exits non-zero if the outcome differs from `demo/scenarios/*.json`.
 
@@ -268,7 +288,14 @@ Newest last.
 38. **The duplicate rule counts approvals even if the transaction never landed,** so its failure mode is a refused retry, not a double payment.
 39. **A duplicate is the same recipient and amount with the same memo or under the same task.** The spec's recipient, amount and memo rule let a double payment through in a consistency run: after the guard denied the injected 190, the executor retried with the approved 60 under a new memo, and the judge, which cannot see past payments, approved it. The cost is that a task approving two identical amounts to one vendor gets the second refused.
 40. **The PDFs sit in `demo/invoices/` and the text copies in `demo/invoices/txt/`,** which `list_invoices` does not descend into, so nothing gets paid twice.
+41. **The chain decides every outcome in the console.** `buildTimeline` takes PAID, PENDING, REJECTED and BLOCKED BY CHAIN from chain history. The activity log adds only the "why", and guard denials, which never reach the chain, are labelled offchain. Model text is never a status.
+42. **`/create` sends one atomic transaction,** so there is one popup and no half-made vault. It splits in two only if a size check says it will not fit, and it has fit so far with three vendors and a deposit.
+43. **Live updates come from `onLogs(vault)`, with a 15-second poll behind it.** A log notification also fires for failed transactions, which an account subscription would miss. The activity log is polled every 3 seconds, because guard denials have no onchain signal.
+44. **`ACTIVITY_SOURCE` defaults to the snapshot,** so a deployment cannot serve a log file by accident, and fields pass through a whitelist in `sanitizeActivity`.
+45. **Anchor's browser build needs `fs` aliased away.** It references `fs` in `NodeWallet.local`, which a browser never calls, so `next.config.ts` points it at `lib/empty.ts` through Turbopack's `resolveAlias`.
+46. **The dev burner is opt-in through `NEXT_PUBLIC_DEV_BURNER_KEY`,** because automation cannot click a wallet extension. It must stay unset on a deployment, where it would publish the key.
+47. **Demo vault owners need a faucet, and retakes have limits.** `pnpm demo:faucet` uses the CLI wallet's mint authority. One vault per owner plus the guard's 24-hour duplicate rule mean a second `demo:run` on one vault gets its MEDIUM payments refused, which is correct.
 
 ## Phase status
 
-Phase 4 is complete: executor, guard and injection demo work on devnet. `pnpm test:apps` runs 35 tests (one skipped without `RUN_LLM`), and `pnpm test:all` runs 92 against the program and SDK. A human approves the demo's pending DataLabs payment in the Phase 5 dashboard, so it stays Pending for now. The SDK has not yet been imported from a real Next.js build; that comes with the dashboard.
+Phase 5 is complete: the console works on devnet with a burner wallet through the full flow (create, `demo:run --vault`, live timeline, reject, revoke, approve while paused, unpause). `pnpm test:apps` runs 50 tests (one skipped without `RUN_LLM`), and `pnpm test:all` runs 92 against the program and SDK. The same flow with Phantom has not been run yet, since it needs a person to click the wallet. Screenshots are in `docs/screenshots/`.

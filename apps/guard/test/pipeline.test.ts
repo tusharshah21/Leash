@@ -14,7 +14,7 @@ import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from "@solana/spl-tok
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import type { Proposal } from "../src/decode.ts";
 import { parseVerdict, type Verdict } from "../src/judge.ts";
-import { cosign, type Deps } from "../src/pipeline.ts";
+import { cosign, type Deps, review, type Review } from "../src/pipeline.ts";
 import type { ChainState, Decision } from "../src/rules.ts";
 
 const agent = Keypair.generate();
@@ -100,6 +100,12 @@ function harness(judge: Deps["judge"], state = OK_STATE, overrides: Partial<Deps
     },
     history: () => log,
     record: (d) => void log.push(d),
+    pendingAction: async () => ({
+      recipient: vendor,
+      amount: BigInt(proposal.amount),
+      reasonHash: reasonHash(proposal.reasoning),
+    }),
+    recordReview: () => {},
     ...overrides,
   };
   return { deps, log, judged };
@@ -235,4 +241,51 @@ test("malformed requests are refused and an unloggable approval is never returne
   const res = await cosign(request(), broken.deps);
   assert.equal(res.status, 500);
   assert.ok(!("signedTx" in res));
+});
+
+const reviewBody = { userTask: "Pay DataLabs 120", proposal, nonce: "3" };
+
+test("review reports risk and rule findings for a matching proposal, and signs nothing", async () => {
+  const reviews: Review[] = [];
+  const { deps, log, judged } = harness(
+    async () => ({ verdict: "deny", risk: 95, rationale: "not in the task" }),
+    { ...OK_STATE, allowlisted: false, tier: "HIGH" },
+    { recordReview: (r) => void reviews.push(r) }
+  );
+  const res = await review(reviewBody, deps);
+  assert.equal(res.status, 200);
+  assert.ok(!("signedTx" in res));
+  assert.deepEqual(res.status === 200 && res.findings, ["recipient is not on the allowlist"]);
+  assert.equal(reviews[0].nonce, "3");
+  assert.equal(reviews[0].risk, 95);
+  assert.equal(judged.length, 1);
+  assert.equal(log.length, 0);
+});
+
+test("review refuses a proposal that does not match the chain, or does not exist", async () => {
+  const { deps, judged } = harness(async () => APPROVE);
+  for (const change of [
+    { amount: "1" },
+    { reasoning: "something else" },
+    { recipient: Keypair.generate().publicKey.toBase58() },
+  ]) {
+    const res = await review({ ...reviewBody, proposal: { ...proposal, ...change } }, deps);
+    assert.equal(res.status, 403);
+  }
+  assert.equal(judged.length, 0);
+
+  const missing = harness(async () => APPROVE, OK_STATE, { pendingAction: async () => null });
+  assert.equal((await review(reviewBody, missing.deps)).status, 403);
+  assert.equal((await review({ ...reviewBody, nonce: "x" }, deps)).status, 403);
+});
+
+test("an approving review never makes a later payment a duplicate", async () => {
+  const lines: unknown[] = [];
+  const { deps } = harness(async () => APPROVE, OK_STATE, {
+    recordReview: (r) => void lines.push(r),
+    history: () => lines as Decision[],
+  });
+  assert.equal((await review(reviewBody, deps)).status, 200);
+  assert.equal(lines.length, 1);
+  assert.equal((await cosign(request(), deps)).status, 200);
 });

@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0e11;
+  --color-surface: #12171c;
+  --color-raised: #181f26;
+  --color-line: #232b33;
+  --color-line-strong: #36414c;
+  --color-ink: #e6edf3;
+  --color-muted: #8b98a5;
+  --color-safe: #3ddc97;
+  --color-blocked: #ff5c5c;
+  --color-pending: #ffb020;
+  --color-safe-dim: #3ddc971f;
+  --color-blocked-dim: #ff5c5c1f;
+  --color-pending-dim: #ffb0201f;
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --ease-out-quick: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A faint instrument grid, fading out so it never sits behind body text at full strength. */
+body {
+  background-image:
+    linear-gradient(to right, #ffffff08 1px, transparent 1px),
+    linear-gradient(to bottom, #ffffff08 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: -1px -1px;
+  background-attachment: fixed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--color-ink);
+  color: var(--color-bg);
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+@keyframes row-flash {
+  from {
+    background-color: #ffffff14;
+  }
+}
+.row-new {
+  animation:
+    row-in 280ms var(--ease-out-quick),
+    row-flash 1400ms ease-out;
+}
+
+@keyframes gauge-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+.gauge-fill {
+  transform-origin: left;
+  transition: width 300ms var(--ease-out-quick);
+  animation: gauge-in 500ms var(--ease-out-quick);
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, #181f26 25%, #232b33 50%, #181f26 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+  border-radius: 2px;
+}
+
+/* A token travelling across the three layers on the landing page, lighting each in turn. */
+@keyframes travel {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+.token-track {
+  animation: travel 5s linear infinite;
+}
+@keyframes layer-lit {
+  0%,
+  33% {
+    background-color: var(--color-raised);
+  }
+  50%,
+  100% {
+    background-color: var(--color-surface);
+  }
+}
+.layer-card {
+  animation: layer-lit 5s ease-out infinite;
+}
+
+@keyframes live-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.live-dot {
+  animation: live-pulse 1.8s ease-in-out infinite;
+}
+
+dialog::backdrop {
+  background: #000000a6;
+}
+
+input[type="range"] {
+  accent-color: var(--color-safe);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  .token-track {
+    display: none;
+  }
+}

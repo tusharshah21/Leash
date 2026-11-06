@@ -6,6 +6,7 @@ import { join } from "node:path";
 import anchor from "@anchor-lang/core";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import type { ActivityEntry } from "./activity.js";
+import { LeashClient } from "./client.js";
 
 const { AnchorProvider, Wallet } = anchor;
 
@@ -63,4 +64,12 @@ export function vaultOwner(devnetJsonPath = "demo/devnet.json"): PublicKey {
   if (process.env.LEASH_VAULT_OWNER) return new PublicKey(process.env.LEASH_VAULT_OWNER);
   const demo = JSON.parse(readFileSync(devnetJsonPath, "utf8"));
   return new PublicKey(demo.demoVault?.owner ?? demo.owner.address);
+}
+
+/** A client signing as `key`, for the vault in LEASH_VAULT if set, else as `vaultOwner` picks. */
+export async function clientFor(key: Keypair) {
+  const provider = providerFor(key);
+  return process.env.LEASH_VAULT
+    ? LeashClient.forVault(provider, new PublicKey(process.env.LEASH_VAULT))
+    : new LeashClient(provider, vaultOwner());
 }

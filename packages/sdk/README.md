@@ -33,3 +33,11 @@ A client signs as its provider's wallet and is bound to one vault, so make one p
 A guard is any `{ publicKey, signTransaction }`, so it can be a wallet in the same process or a remote service.
 
 Test with `pnpm test:sdk` from the repo root. `anchor test` runs these too. `pnpm smoke:devnet` exercises the client against the deployed program.
+
+## Added for the console
+
+- `LeashClient.forVault(provider, vault)` reads the owner from the vault, so a client can follow a vault without holding the owner's key.
+- `client.fetchHistory(limit, cache)` returns events and failed `agent_execute` attempts per signature. Pass the same `Map` each time, so a refresh only fetches what is new.
+- `client.sendTx(tx)` sends a built transaction through the provider's wallet and maps failures to `LeashTxError`.
+- `sanitizeActivity(entries, vault?)` keeps only whitelisted activity fields. The API route and `demo:snapshot` both use it.
+- `clientFor(key)` in `@leash/sdk/node` honors `LEASH_VAULT`, which is how `--vault` reaches the agent and guard.

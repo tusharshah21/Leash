@@ -13,6 +13,10 @@ logs/
 test-ledger/
 .surfpool/
 node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.vercel/
 
 # Editor and OS
 **/*.rs.bk

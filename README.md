@@ -8,6 +8,12 @@ An onchain firewall for AI agents. Leash is a Solana program that enforces what 
 
 Built for the MLH Solana Hackathon, November 2026. Contributor setup and commands are in [CLAUDE.md](CLAUDE.md).
 
+## The console
+
+`apps/web` is the owner's view: live chain state, a timeline of everything the agent tried, and the pending queue. The chain decides every outcome shown, and model text only ever appears as the agent's reasoning, checked against the hash stored onchain. Connect a devnet wallet at `/create`, sign once, then point the agent at your vault with `pnpm demo:run --vault <vault>`. See [apps/web/README.md](apps/web/README.md).
+
+![The console with an attacker's payment waiting in the pending queue](docs/screenshots/console-1440.png)
+
 ## How the guard works
 
 An AI executor reads invoices and can be fooled by what is in them. The guard is a separate service with its own key, and it never sees those documents. A medium-risk payment cannot land without its signature, and it signs only after these steps, in order. Any error means no signature.
