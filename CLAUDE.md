@@ -308,6 +308,7 @@ Newest last.
 53. **Blink text separates chain facts from claims.** Title, amount, recipient and allowlist status come from the chain. Reasoning appears only if its hash matches the onchain `reason_hash`, and is labelled "Agent claims". Telegram messages carry no model text.
 54. **A deployed Blink has offchain context only from the committed snapshot,** which is bundled at build time. Newer proposals show chain facts and "No verified reasoning". Rerun `pnpm demo:snapshot`, commit and redeploy to include them.
 55. **`pnpm deploy:devnet` can stall on Helius after an extend.** Helius returned stale results for the new buffer, and the deploy failed with "already in use" holding 1.78 SOL in it. The public endpoint saw the buffer, byte-identical to the build, and `solana program upgrade <buffer> <program>` through it finished the job. Check the buffer on another RPC before assuming the SOL is gone.
+56. **The console degrades instead of stalling when the RPC rate-limits it.** Each part of a refresh keeps its last good value, the vault shows before history, `fetchHistory` returns what it has once a transaction fetch is refused, and a failed refresh retries with backoff from 1s to 30s. Without a Helius URL in the build, the public RPC answered about a third of the calls with 429 and the console never left its loading state.
 
 ## Phase status
 

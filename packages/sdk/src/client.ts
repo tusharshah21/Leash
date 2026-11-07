@@ -387,7 +387,9 @@ export class LeashClient {
 
   /**
    * Every recent transaction on this vault, newest first, including failed ones, which carry no
-   * events. Pass the same cache to later calls so they only fetch what is new.
+   * events. Pass the same cache to later calls so they only fetch what is new. If the RPC refuses a
+   * transaction, for example when rate limited, the rest come from the cache only, so the result is
+   * partial rather than an error, and a later call fills the gap.
    */
   async fetchHistory(limit: number, cache = new Map<string, HistoryItem>()) {
     const signatures = await this.connection.getSignaturesForAddress(
@@ -396,13 +398,17 @@ export class LeashClient {
       "confirmed"
     );
     const items: HistoryItem[] = [];
+    let refused = false;
     for (const { signature, err, blockTime } of signatures) {
       let item = cache.get(signature);
       if (!item) {
-        const tx = await this.connection.getTransaction(signature, {
-          commitment: "confirmed",
-          maxSupportedTransactionVersion: 0,
-        });
+        if (refused) continue;
+        const tx = await this.connection
+          .getTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 })
+          .catch(() => {
+            refused = true;
+            return null;
+          });
         if (!tx) continue; // Not indexed yet. The next refresh picks it up.
         const logs = tx.meta?.logMessages ?? [];
         item = {

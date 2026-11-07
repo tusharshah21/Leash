@@ -7,12 +7,14 @@ import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { providerFor, readOnlyWallet } from "./chain";
+import { backoffMs, settledOr } from "./retry";
 
 const POLL_MS = 15_000;
 const ACTIVITY_POLL_MS = 3_000;
 const HISTORY_LIMIT = 40;
 const NOT_FOUND = /does not exist|has no data|Invalid account discriminator/i;
 const NO_VAULT = "There is no Leash vault at this address.";
+const isNotFound = (err: unknown) => NOT_FOUND.test(String((err as Error)?.message ?? err));
 
 type Account<K extends "fetchVault" | "fetchMandate"> = Awaited<ReturnType<LeashClient[K]>>;
 
@@ -41,6 +43,9 @@ export function useVault(address: string) {
   const clientRef = useRef<LeashClient | null>(null);
   const running = useRef(false);
   const again = useRef(false);
+  const last = useRef<VaultData | null>(null);
+  const failures = useRef(0);
+  const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     const client = clientRef.current;
@@ -51,38 +56,58 @@ export function useVault(address: string) {
       return;
     }
     running.current = true;
+    clearTimeout(retry.current);
+    const prev = last.current;
+    let failed = false;
+    // Each part falls back to its last good value, so one rate-limited request never blanks the page.
+    const pick = <T>(result: PromiseSettledResult<T>, previous: T | undefined) => {
+      failed ||= result.status === "rejected";
+      return settledOr(result, previous, isNotFound);
+    };
+    const show = (data: VaultData) => {
+      last.current = data;
+      setState({ status: "ready", client, data });
+    };
     try {
-      const [vault, mandate, balance, allowlist, pending, clock] = await Promise.all([
+      const [vault, mandate, balance, allowlist, pending, clock] = await Promise.allSettled([
         client.fetchVault(),
         client.fetchMandate(),
-        connection.getTokenAccountBalance(client.vaultToken, "confirmed"),
+        connection
+          .getTokenAccountBalance(client.vaultToken, "confirmed")
+          .then((b) => b.value.amount),
         client.fetchAllowlist(),
         client.fetchPending(),
         connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY, "confirmed"),
       ]);
-      const history = await client.fetchHistory(HISTORY_LIMIT, cache.current);
-      const chainNow = clock ? Number(clock.data.readBigInt64LE(32)) : Date.now() / 1000;
-      setState({
-        status: "ready",
-        client,
-        data: {
-          vault,
-          mandate,
-          balance: balance.value.amount,
-          allowlist,
-          pending,
-          history,
-          clockSkew: chainNow - Date.now() / 1000,
-        },
-      });
-      setOffline(false);
+      const time = clock.status === "fulfilled" ? clock.value : null;
+      const chainNow = time ? Number(time.data.readBigInt64LE(32)) : Date.now() / 1000;
+      const data: VaultData = {
+        vault: pick(vault, prev?.vault),
+        mandate: pick(mandate, prev?.mandate),
+        balance: pick(balance, prev?.balance),
+        allowlist: pick(allowlist, prev?.allowlist),
+        pending: pick(pending, prev?.pending),
+        history: prev?.history ?? [],
+        clockSkew: time ? chainNow - Date.now() / 1000 : prev?.clockSkew ?? 0,
+      };
+      // The vault shows now; history, up to 40 transaction fetches, follows.
+      if (!prev) show(data);
+      const [history] = await Promise.allSettled([
+        client.fetchHistory(HISTORY_LIMIT, cache.current),
+      ]);
+      show({ ...data, history: pick(history, data.history) });
     } catch (err) {
-      if (NOT_FOUND.test(String((err as Error)?.message ?? err))) {
+      failed = true;
+      if (isNotFound(err)) {
+        last.current = null;
         setState({ status: "missing", reason: NO_VAULT });
-      } else {
-        setOffline(true);
+        failed = false;
       }
     } finally {
+      setOffline(failed);
+      failures.current = failed ? failures.current + 1 : 0;
+      // Retry sooner than the poll after a failure, backing off while the RPC keeps refusing.
+      if (failed) retry.current = setTimeout(() => void refresh(), backoffMs(failures.current - 1));
       running.current = false;
       if (again.current) {
         again.current = false;
@@ -102,6 +127,7 @@ export function useVault(address: string) {
 
     let stopped = false;
     let unsubscribe = () => {};
+    let attempt = 0;
     const start = async () => {
       try {
         const client = await LeashClient.forVault(providerFor(connection, readOnlyWallet), key);
@@ -112,11 +138,11 @@ export function useVault(address: string) {
         unsubscribe = () => void connection.removeOnLogsListener(id);
       } catch (err) {
         if (stopped) return;
-        if (NOT_FOUND.test(String((err as Error)?.message ?? err))) {
+        if (isNotFound(err)) {
           setState({ status: "missing", reason: NO_VAULT });
         } else {
           setOffline(true);
-          setTimeout(() => !stopped && void start(), POLL_MS);
+          setTimeout(() => !stopped && void start(), backoffMs(attempt++));
         }
       }
     };
@@ -125,6 +151,7 @@ export function useVault(address: string) {
     return () => {
       stopped = true;
       clearInterval(poll);
+      clearTimeout(retry.current);
       unsubscribe();
     };
   }, [address, connection, refresh]);
