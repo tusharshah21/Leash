@@ -4,7 +4,7 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction } from "@solana/web3.js";
+import { type Connection, PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction } from "@solana/web3.js";
 import { BN, Program, utils } from "./anchor.js";
 import { errorName, LeashTxError } from "./errors.js";
 import { type LeashEvent, parseEvents } from "./events.js";
@@ -70,6 +70,7 @@ const EXECUTE_DISCRIMINATOR = Buffer.from(
   ).instructions.find((ix) => ix.name === "agent_execute")!.discriminator
 );
 const RECIPIENT_TOKEN_INDEX = 6;
+const HISTORY_CONCURRENCY = 4;
 
 export type ActResult =
   | { tier: "LOW" | "MEDIUM"; signature: string }
@@ -397,47 +398,60 @@ export class LeashClient {
       { limit },
       "confirmed"
     );
-    const items: HistoryItem[] = [];
+    // A few single calls at a time, never a JSON-RPC batch, which the public RPC refuses whole.
+    // After the first refusal the rest wait for the next call.
     let refused = false;
-    for (const { signature, err, blockTime } of signatures) {
-      let item = cache.get(signature);
-      if (!item) {
-        if (refused) continue;
-        const tx = await this.connection
-          .getTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 })
-          .catch(() => {
-            refused = true;
-            return null;
-          });
-        if (!tx) continue; // Not indexed yet. The next refresh picks it up.
-        const logs = tx.meta?.logMessages ?? [];
-        item = {
-          signature,
-          blockTime: blockTime ?? null,
-          failed: err !== null,
-          events: parseEvents(this.program, logs, signature).filter((e) => this.isOurs(e)),
-        };
-        if (err !== null) {
-          const message = tx.transaction.message;
-          for (const ix of message.compiledInstructions) {
-            const data = Buffer.from(ix.data);
-            const isExecute =
-              message.staticAccountKeys[ix.programIdIndex].equals(PROGRAM_ID) &&
-              data.subarray(0, 8).equals(EXECUTE_DISCRIMINATOR);
-            if (!isExecute) continue;
-            item.attempt = {
-              amount: data.readBigUInt64LE(8).toString(),
-              recipientTokenAccount:
-                message.staticAccountKeys[ix.accountKeyIndexes[RECIPIENT_TOKEN_INDEX]].toBase58(),
-              error: errorName({ logs, message: JSON.stringify(err) }),
-            };
-          }
-        }
-        cache.set(signature, item);
-      }
-      items.push(item);
+    const missing = signatures.filter((s) => !cache.has(s.signature));
+    for (let i = 0; i < missing.length && !refused; i += HISTORY_CONCURRENCY) {
+      await Promise.all(
+        missing.slice(i, i + HISTORY_CONCURRENCY).map(async (s) => {
+          const tx = await this.connection
+            .getTransaction(s.signature, {
+              commitment: "confirmed",
+              maxSupportedTransactionVersion: 0,
+            })
+            .catch(() => {
+              refused = true;
+              return null;
+            });
+          // Not indexed yet, or refused. A later call picks it up.
+          if (tx) cache.set(s.signature, this.historyItem(s, tx));
+        })
+      );
     }
-    return items;
+    const items = signatures.flatMap((s) => cache.get(s.signature) ?? []);
+    /** True when some transactions are missing, so the caller should try again soon. */
+    return Object.assign(items, { partial: items.length < signatures.length });
+  }
+
+  private historyItem(
+    { signature, err, blockTime }: { signature: string; err: unknown; blockTime?: number | null },
+    tx: NonNullable<Awaited<ReturnType<Connection["getTransaction"]>>>
+  ): HistoryItem {
+    const logs = tx.meta?.logMessages ?? [];
+    const item: HistoryItem = {
+      signature,
+      blockTime: blockTime ?? null,
+      failed: err !== null,
+      events: parseEvents(this.program, logs, signature).filter((e) => this.isOurs(e)),
+    };
+    if (err !== null) {
+      const message = tx.transaction.message;
+      for (const ix of message.compiledInstructions) {
+        const data = Buffer.from(ix.data);
+        const isExecute =
+          message.staticAccountKeys[ix.programIdIndex].equals(PROGRAM_ID) &&
+          data.subarray(0, 8).equals(EXECUTE_DISCRIMINATOR);
+        if (!isExecute) continue;
+        item.attempt = {
+          amount: data.readBigUInt64LE(8).toString(),
+          recipientTokenAccount:
+            message.staticAccountKeys[ix.accountKeyIndexes[RECIPIENT_TOKEN_INDEX]].toBase58(),
+          error: errorName({ logs, message: JSON.stringify(err) }),
+        };
+      }
+    }
+    return item;
   }
 
   /** Signs as this client's wallet, sends and confirms a transaction built elsewhere. */

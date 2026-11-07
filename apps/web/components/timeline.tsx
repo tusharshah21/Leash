@@ -10,18 +10,20 @@ import {
 import { useEffect, useRef } from "react";
 import { dusdc, short, txUrl } from "@/lib/chain";
 import type { Row } from "@/lib/timeline";
-import { Card, OutcomeBadge, TierBadge } from "./ui";
+import { Card, OutcomeBadge, Skeleton, TierBadge } from "./ui";
 
 export function Timeline({
   rows,
   labels,
   address,
   offline,
+  loading,
 }: {
   rows: Row[];
   labels: Map<string, string>;
   address: string;
   offline: boolean;
+  loading: boolean;
 }) {
   // Only rows that arrive after the first paint get the entrance animation.
   const seen = useRef<Set<string> | null>(null);
@@ -43,7 +45,15 @@ export function Timeline({
         </span>
       }
     >
-      {rows.length === 0 ? (
+      {loading ? (
+        // Offchain rows alone would misrepresent the vault, so nothing shows until the chain has.
+        <div className="space-y-px" aria-busy="true">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+          <span className="sr-only">Loading the vault&apos;s history</span>
+        </div>
+      ) : rows.length === 0 ? (
         <div className="px-4 py-10 text-center">
           <p className="text-sm">No agent activity on this vault yet.</p>
           <p className="mono mt-3 text-xs break-all text-muted">pnpm demo:run --vault {address}</p>
@@ -70,7 +80,7 @@ const time = (ts: number) =>
     : "--:--";
 
 function recipientName(row: Row, labels: Map<string, string>) {
-  if (row.recipient) return labels.get(row.recipient) ?? short(row.recipient);
+  if (row.recipient) return labels.get(row.recipient) ?? `Unlisted ${short(row.recipient)}`;
   return row.recipientTokenAccount ? `token ${short(row.recipientTokenAccount)}` : "unknown";
 }
 
@@ -88,7 +98,9 @@ function TimelineRow({
       <details className="group">
         <summary className="grid cursor-pointer list-none grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-3 hover:bg-raised md:grid-cols-[2.75rem_4.25rem_3.5rem_minmax(0,1fr)_auto_1rem] [&::-webkit-details-marker]:hidden">
           <span className="mono hidden text-xs text-muted md:block">{time(row.ts)}</span>
-          <TierBadge tier={row.tier} />
+          <TierBadge
+            tier={row.tier ?? (row.outcome === "BLOCKED BY CHAIN" ? "DIRECT" : undefined)}
+          />
           <span className="mono text-sm font-medium">{dusdc(row.amount)}</span>
           <span className="col-span-2 truncate text-sm md:col-span-1" title={row.recipient}>
             {recipientName(row, labels)}
