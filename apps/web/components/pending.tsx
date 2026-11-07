@@ -1,7 +1,7 @@
 "use client";
 
 import type { ActivityEntry } from "@leash/sdk";
-import { ShieldAlert } from "lucide-react";
+import { Clock, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { pendingPath } from "@/lib/actions";
 import { dusdc, short, txUrl } from "@/lib/chain";
@@ -92,109 +92,140 @@ function PendingCard({
   return (
     <article
       aria-label={`Pending payment of ${dusdc(item.amount.toString())} dUSDC`}
-      className={`row-new border p-4 ${
-        onList ? "border-pending/50" : "border-blocked bg-blocked-dim"
+      className={`row-new border ${
+        onList ? "border-pending/50" : "border-blocked bg-blocked-dim shadow-lg shadow-blocked/10"
       }`}
     >
-      {!onList && (
-        <p className="mono mb-3 flex items-center gap-2 text-sm font-semibold tracking-wide text-blocked">
-          <ShieldAlert size={18} aria-hidden="true" />
-          NOT ON ALLOWLIST
-        </p>
-      )}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <header
+        className={`mono flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-xs font-semibold tracking-wider ${
+          onList ? "border-b border-pending/30 bg-pending-dim text-pending" : "bg-blocked text-bg"
+        }`}
+      >
+        <span className="flex items-center gap-2">
+          {onList ? (
+            <Clock size={15} aria-hidden="true" />
+          ) : (
+            <ShieldAlert size={16} aria-hidden="true" />
+          )}
+          {onList ? "NEEDS YOUR APPROVAL" : "NOT ON ALLOWLIST"}
+        </span>
+        <span className="font-medium">
+          Expires in <Countdown until={expiresAt} skew={skew} done="expired" />
+        </span>
+      </header>
+      <div className="p-4">
         <div>
-          <p className="mono text-3xl font-medium tracking-tight">
+          <p className="mono text-4xl font-medium tracking-tight">
             {dusdc(item.amount.toString())}
-            <span className="ml-2 text-sm text-muted">dUSDC</span>
+            <span className="ml-2 text-base text-muted">dUSDC</span>
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted">to</span>
-            <span className="font-medium">{labels.get(recipient) ?? "Unknown recipient"}</span>
+            <span className={`font-medium ${onList ? "" : "text-blocked"}`}>
+              {labels.get(recipient) ?? "Unlisted address"}
+            </span>
             <Address address={recipient} />
           </p>
-        </div>
-        <div className="text-sm sm:text-right">
-          <p className="eyebrow">Expires in</p>
-          <p className="mt-1">
-            <Countdown until={expiresAt} skew={skew} done="expired" />
+          <p className="mt-2 text-sm text-muted">
+            {onList
+              ? "Over what the agent may pay alone. Nothing moves until you approve."
+              : "The agent asked to pay an address you never allowlisted. Nothing moves unless you approve."}
           </p>
         </div>
-      </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
-        <div className="border border-line bg-bg/60 p-3">
-          <p className="eyebrow">Agent&apos;s reasoning</p>
-          {reasoning ? (
-            <p className="mt-2 text-sm leading-relaxed">{reasoning}</p>
-          ) : (
-            <p className="mt-2 text-sm text-muted">No offchain record for this proposal.</p>
-          )}
-          {memo && <p className="mono mt-2 text-xs text-muted">Memo: {memo}</p>}
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+          <div className="border border-line bg-bg/60 p-3">
+            <p className="eyebrow">Agent&apos;s reasoning</p>
+            {reasoning ? (
+              <p className="mt-2 text-sm leading-relaxed">{reasoning}</p>
+            ) : (
+              <p className="mt-2 text-sm text-muted">No offchain record for this proposal.</p>
+            )}
+            {memo && <p className="mono mt-2 text-xs text-muted">Memo: {memo}</p>}
+          </div>
+          <div className="border border-line bg-bg/60 p-3">
+            <p className="eyebrow">Guard review, advisory</p>
+            {review ? (
+              <>
+                <div className="mt-2 flex items-center gap-3">
+                  <p
+                    className={`mono shrink-0 text-sm font-medium ${
+                      (review.risk ?? 0) >= 50 ? "text-blocked" : "text-safe"
+                    }`}
+                  >
+                    Risk {review.risk ?? "n/a"} / 100
+                  </p>
+                  {review.risk !== undefined && (
+                    <span className="h-1.5 flex-1 bg-line" aria-hidden="true">
+                      <span
+                        className={`gauge-fill block h-full ${
+                          review.risk >= 50 ? "bg-blocked" : "bg-safe"
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, review.risk))}%` }}
+                      />
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-sm leading-relaxed">{review.rationale}</p>
+                {review.findings?.map((f) => (
+                  <p key={f} className="mt-1 text-xs text-muted">
+                    Rule: {f}
+                  </p>
+                ))}
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted">The guard has not reviewed this proposal.</p>
+            )}
+          </div>
         </div>
-        <div className="border border-line bg-bg/60 p-3">
-          <p className="eyebrow">Guard review, advisory</p>
-          {review ? (
-            <>
-              <p
-                className={`mono mt-2 text-sm font-medium ${
-                  (review.risk ?? 0) >= 50 ? "text-blocked" : "text-safe"
-                }`}
-              >
-                Risk {review.risk ?? "n/a"} / 100
-              </p>
-              <p className="mt-1 text-sm leading-relaxed">{review.rationale}</p>
-              {review.findings?.map((f) => (
-                <p key={f} className="mt-1 text-xs text-muted">
-                  Rule: {f}
-                </p>
-              ))}
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-muted">The guard has not reviewed this proposal.</p>
-          )}
-        </div>
-      </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button
-          variant={onList ? "primary" : "outline"}
-          busy={busy === "approve"}
-          disabled={!isOwner || !!busy}
-          onClick={() => (onList ? void decide("approve") : setConfirming(true))}
-        >
-          Approve
-        </Button>
-        <Button
-          variant={onList ? "outline" : "danger"}
-          busy={busy === "reject"}
-          disabled={!isOwner || !!busy}
-          onClick={() => void decide("reject")}
-        >
-          Reject
-        </Button>
-        <PhoneLink
-          path={pendingPath(address, nonce)}
-          label="Approve from phone"
-          title="Decide this from your phone"
-        />
-        {!isOwner && (
-          <p className="text-xs text-muted">
-            Connect the owner wallet to decide this.
-            {device ? ` The device key ${short(device)} can also approve or reject.` : ""}
-          </p>
-        )}
-        {isOwner && device && (
-          <p className="text-xs text-muted">The device key {short(device)} can also decide this.</p>
-        )}
-      </div>
-      <div className="mt-3 empty:hidden">
-        <ErrorText error={error} />
-        {done && (
-          <a href={txUrl(done)} target="_blank" rel="noreferrer" className="mono text-xs underline">
-            View transaction
-          </a>
-        )}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            variant={onList ? "primary" : "outline"}
+            busy={busy === "approve"}
+            disabled={!isOwner || !!busy}
+            onClick={() => (onList ? void decide("approve") : setConfirming(true))}
+          >
+            Approve
+          </Button>
+          <Button
+            variant={onList ? "outline" : "danger"}
+            busy={busy === "reject"}
+            disabled={!isOwner || !!busy}
+            onClick={() => void decide("reject")}
+          >
+            Reject
+          </Button>
+          <PhoneLink
+            path={pendingPath(address, nonce)}
+            label="Approve from phone"
+            title="Decide this from your phone"
+          />
+          {!isOwner && (
+            <p className="text-xs text-muted">
+              Connect the owner wallet to decide this.
+              {device ? ` The device key ${short(device)} can also approve or reject.` : ""}
+            </p>
+          )}
+          {isOwner && device && (
+            <p className="text-xs text-muted">
+              The device key {short(device)} can also decide this.
+            </p>
+          )}
+        </div>
+        <div className="mt-3 empty:hidden">
+          <ErrorText error={error} />
+          {done && (
+            <a
+              href={txUrl(done)}
+              target="_blank"
+              rel="noreferrer"
+              className="mono text-xs underline"
+            >
+              View transaction
+            </a>
+          )}
+        </div>
       </div>
       <Confirm
         open={confirming}

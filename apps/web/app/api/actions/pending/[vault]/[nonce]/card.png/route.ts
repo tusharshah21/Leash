@@ -36,7 +36,7 @@ async function props(request: Request, vaultParam: string, nonceParam: string): 
     headline: (Number(p.amount) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 2 }),
     unit: "dUSDC",
     lines: [
-      `to ${p.label ?? "Unknown recipient"}`,
+      `to ${p.label ?? "Unlisted address"}`,
       `${address.slice(0, 6)}...${address.slice(-6)}`,
       risk === undefined ? "No guard review" : `Guard risk ${risk} / 100`,
     ],

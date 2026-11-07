@@ -64,7 +64,13 @@ export function MandateCard({ mandate, skew }: { mandate: VaultData["mandate"]; 
             />
           </div>
           <p className="mt-2 text-xs text-muted">
-            Window resets in <Countdown until={windowEnd} skew={skew} done="the next action" />
+            {windowEnded ? (
+              "A fresh window starts at the agent's next action."
+            ) : (
+              <>
+                Window resets in <Countdown until={windowEnd} skew={skew} />
+              </>
+            )}
           </p>
           {spent > cap && (
             <p className="mt-1 text-xs text-muted">

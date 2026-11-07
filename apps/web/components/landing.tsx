@@ -3,6 +3,8 @@
 import { ArrowRight, CircleUser, FileCheck2, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { addressUrl, PROGRAM, short } from "@/lib/chain";
+import type { Outcome } from "@/lib/timeline";
+import { OutcomeBadge, TierBadge } from "./ui";
 
 const LAYERS = [
   {
@@ -31,10 +33,99 @@ const LAYERS = [
   },
 ];
 
+// The scripted devnet run, as the console shows it. Order is the order the rows land.
+const REPLAY: {
+  tier: string;
+  amount: number;
+  to: string;
+  outcome: Outcome;
+  note?: string;
+  attack?: boolean;
+}[] = [
+  { tier: "LOW", amount: 18, to: "Acme Design", outcome: "PAID", note: "agent alone" },
+  { tier: "MEDIUM", amount: 120, to: "CloudHost Inc", outcome: "PAID", note: "guard co-signed" },
+  { tier: "MEDIUM", amount: 45, to: "CloudHost Inc", outcome: "PAID", note: "guard co-signed" },
+  {
+    tier: "HIGH",
+    amount: 150,
+    to: "Unlisted address",
+    outcome: "PENDING",
+    note: "hidden line in an invoice",
+    attack: true,
+  },
+  {
+    tier: "DIRECT",
+    amount: 150,
+    to: "Unlisted address",
+    outcome: "BLOCKED BY CHAIN",
+    note: "NotAllowlisted",
+    attack: true,
+  },
+  {
+    tier: "MEDIUM",
+    amount: 190,
+    to: "CloudHost Inc",
+    outcome: "BLOCKED BY GUARD",
+    note: "task approved 60",
+    attack: true,
+  },
+];
+
+/** The hero's proof: the attack run, replayed row by row in the console's own components. */
+export function AttackReplay() {
+  return (
+    <figure className="border border-line-strong bg-surface shadow-2xl shadow-black/40">
+      <figcaption className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <span className="eyebrow">Agent pays 4 invoices, 2 are poisoned</span>
+        <span className="mono flex items-center gap-2 text-xs text-muted">
+          <span className="live-dot h-1.5 w-1.5 rounded-full bg-safe" aria-hidden="true" />
+          devnet
+        </span>
+      </figcaption>
+      <ol className="divide-y divide-line">
+        {REPLAY.map((r, i) => (
+          <li
+            key={i}
+            className={`replay-row grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2.5 sm:grid-cols-[4.25rem_3rem_minmax(0,1fr)_auto] ${
+              r.attack ? "bg-blocked-dim/60" : ""
+            }`}
+            style={{ animationDelay: `${300 + i * 450}ms` }}
+          >
+            <span className="hidden sm:block">
+              <TierBadge tier={r.tier} />
+            </span>
+            <span className="mono text-sm font-medium">{r.amount}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm">{r.to}</span>
+              <span
+                className={`mono block truncate text-[11px] ${
+                  r.attack ? "text-blocked" : "text-muted"
+                }`}
+              >
+                {r.note}
+              </span>
+            </span>
+            <OutcomeBadge outcome={r.outcome} />
+          </li>
+        ))}
+      </ol>
+      <p
+        className="replay-row flex items-baseline justify-between gap-3 border-t border-line-strong px-4 py-3"
+        style={{ animationDelay: `${300 + REPLAY.length * 450}ms` }}
+      >
+        <span className="eyebrow">Attacker received</span>
+        <span className="mono text-2xl font-medium text-safe">
+          0 <span className="text-sm text-muted">dUSDC</span>
+        </span>
+      </p>
+    </figure>
+  );
+}
+
 export function LayerDiagram() {
   return (
     <div>
-      <div className="relative hidden h-5 md:block" aria-hidden="true">
+      <div className="relative hidden h-5 overflow-hidden md:block" aria-hidden="true">
         <div className="absolute inset-x-0 top-1/2 h-px bg-line-strong" />
         <div className="token-track absolute inset-0">
           <span className="absolute top-1/2 -mt-1 h-2 w-2 rounded-full bg-safe" />
