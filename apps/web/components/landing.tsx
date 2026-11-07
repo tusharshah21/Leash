@@ -154,9 +154,11 @@ export function LayerDiagram() {
 }
 
 export function LiveStats() {
-  const [stats, setStats] = useState<{ vaults: number; blocked: number; sampled: number } | null>(
-    null
-  );
+  const [stats, setStats] = useState<{
+    vaults?: number;
+    blocked?: number;
+    sampled?: number;
+  } | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     fetch("/api/stats")
@@ -167,7 +169,7 @@ export function LiveStats() {
   const value = (n?: number) =>
     n !== undefined ? (
       <span>{n.toLocaleString("en-US")}</span>
-    ) : failed ? (
+    ) : failed || stats ? (
       <span className="text-muted">n/a</span>
     ) : (
       <span className="skeleton inline-block h-7 w-16 align-middle" aria-label="Loading" />
@@ -198,7 +200,7 @@ export function LiveStats() {
         <dt className="eyebrow">Blocked attempts</dt>
         <dd className="mono mt-2 text-2xl font-medium text-blocked">{value(stats?.blocked)}</dd>
         <dd className="mt-1 text-xs text-muted">
-          Refused by the program, in its last {stats?.sampled.toLocaleString("en-US") ?? "1,000"}{" "}
+          Refused by the program, in its last {stats?.sampled?.toLocaleString("en-US") ?? "1,000"}{" "}
           transactions
         </dd>
       </div>

@@ -190,7 +190,7 @@ export function CreateWizard() {
         <div className="mt-8 grid gap-6 md:grid-cols-[12rem_1fr]">
           <ol className="flex gap-2 md:block md:space-y-1">
             {STEPS.map((name, i) => (
-              <li key={name} className="flex-1">
+              <li key={name} className={i === step ? "flex-[2.5]" : "flex-1"}>
                 <button
                   type="button"
                   onClick={() => i < step && setStep(i)}
@@ -207,9 +207,9 @@ export function CreateWizard() {
                   {i < step ? (
                     <Check size={14} className="text-safe" aria-hidden="true" />
                   ) : (
-                    <span className="hidden md:inline">{i + 1}</span>
+                    <span>{i + 1}</span>
                   )}
-                  <span className="hidden sm:inline">{name}</span>
+                  <span className={i === step ? "" : "hidden sm:inline"}>{name}</span>
                 </button>
               </li>
             ))}

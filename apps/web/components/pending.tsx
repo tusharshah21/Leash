@@ -181,7 +181,7 @@ function PendingCard({
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button
-            variant={onList ? "primary" : "outline"}
+            variant={isOwner && onList ? "primary" : "outline"}
             busy={busy === "approve"}
             disabled={!isOwner || !!busy}
             onClick={() => (onList ? void decide("approve") : setConfirming(true))}
@@ -189,7 +189,7 @@ function PendingCard({
             Approve
           </Button>
           <Button
-            variant={onList ? "outline" : "danger"}
+            variant={isOwner && !onList ? "danger" : "outline"}
             busy={busy === "reject"}
             disabled={!isOwner || !!busy}
             onClick={() => void decide("reject")}

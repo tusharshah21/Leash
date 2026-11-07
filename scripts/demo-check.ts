@@ -90,6 +90,10 @@ await check("Keys", async () => {
     : ["OK", "agent, guard, device"];
 });
 
+if (results.some((r) => r.name === "Keys" && r.level === "FAIL")) {
+  console.log("\nNO-GO: the demo keys are missing. Run pnpm bootstrap:devnet first.");
+  process.exit(1);
+}
 const agent = demoKey("agent");
 const client = await LeashClient.forVault(providerFor(agent), vault).catch(() => null);
 if (!client) {
