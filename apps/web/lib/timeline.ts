@@ -51,7 +51,12 @@ const tierName = (tier: unknown) => Object.keys(tier as object)[0]?.toUpperCase(
 const toUnix = (iso: string) => Math.floor(Date.parse(iso) / 1000);
 
 export function buildTimeline(input: TimelineInput): Row[] {
-  const { history, activity, expiredNonces, walletByTokenAccount } = input;
+  const { expiredNonces, walletByTokenAccount } = input;
+  // A vault recreated at this address shares its transaction history with the closed one.
+  const closed = input.history.findIndex((i) => i.events.some((e) => e.name === "vaultClosed"));
+  const history = closed < 0 ? input.history : input.history.slice(0, closed);
+  const closedAt = closed < 0 ? 0 : input.history[closed].blockTime ?? 0;
+  const activity = input.activity.filter((e) => toUnix(e.ts) >= closedAt);
   const bySig = new Map<string, ActivityEntry>();
   const reviews = new Map<string, ActivityEntry>();
   for (const e of activity) {

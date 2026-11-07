@@ -3,12 +3,15 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Power, ShieldAlert, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { revokePath } from "@/lib/actions";
 import { DEMO_VAULT, dusdc, VENDORS, WALLET_BY_TOKEN_ACCOUNT } from "@/lib/chain";
 import { buildTimeline } from "@/lib/timeline";
 import { useSigner, useVault, type VaultData } from "@/lib/use-vault";
 import { MandateCard } from "./mandate-card";
 import { PendingQueue } from "./pending";
+import { PhoneLink } from "./phone-link";
 import { Timeline } from "./timeline";
 import { Address, Button, Card, Confirm, ErrorText, humanError, Skeleton } from "./ui";
 
@@ -170,17 +173,20 @@ function Ready({
         <div className="space-y-4 lg:row-span-2 xl:row-span-1">
           <MandateCard mandate={mandate} skew={clockSkew} />
           <KillSwitch
+            address={address}
             paused={vault.paused}
             isOwner={isOwner}
             device={vault.device?.toBase58()}
             signer={signer}
             refresh={refresh}
           />
+          {isOwner && <DangerZone paused={vault.paused} balance={data.balance} signer={signer} />}
         </div>
         <div className="min-w-0">
           <PendingQueue
             pending={open}
             activity={activity}
+            address={address}
             labels={labels}
             listed={listed}
             ttl={ttl}
@@ -200,12 +206,14 @@ function Ready({
 }
 
 function KillSwitch({
+  address,
   paused,
   isOwner,
   device,
   signer,
   refresh,
 }: {
+  address: string;
   paused: boolean;
   isOwner: boolean;
   device?: string;
@@ -265,6 +273,13 @@ function KillSwitch({
             >
               <Power size={15} aria-hidden="true" /> Revoke agent
             </Button>
+            <div className="[&>button]:w-full">
+              <PhoneLink
+                path={revokePath(address)}
+                label="Revoke from phone"
+                title="Revoke the agent from your phone"
+              />
+            </div>
           </>
         )}
         {!isOwner && (
@@ -282,6 +297,75 @@ function KillSwitch({
         onConfirm={() => void run("revoke")}
         onClose={() => setConfirming(false)}
       />
+    </Card>
+  );
+}
+
+const CLOSE_WORD = "CLOSE";
+
+function DangerZone({
+  paused,
+  balance,
+  signer,
+}: {
+  paused: boolean;
+  balance: string;
+  signer: ReturnType<typeof useSigner>;
+}) {
+  const router = useRouter();
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const close = async () => {
+    if (!signer) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await signer.closeVault();
+      router.replace("/create");
+    } catch (err) {
+      setError(humanError(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Danger zone" className="border-blocked/40">
+      <div className="space-y-3 p-4">
+        <p className="text-sm leading-relaxed text-muted">
+          Closes this vault for good. <span className="mono">{dusdc(balance)} dUSDC</span> and the
+          rent return to your wallet, and the allowlist and mandate are deleted. Anything still
+          pending can never be approved. You can create a new vault afterwards.
+        </p>
+        {paused ? (
+          <>
+            <label className="block text-sm">
+              Type <span className="mono font-medium">{CLOSE_WORD}</span> to confirm
+              <input
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoComplete="off"
+                className="mono mt-2 block min-h-11 w-full border border-line-strong bg-bg px-3 text-sm"
+              />
+            </label>
+            <Button
+              variant="danger"
+              onClick={() => void close()}
+              busy={busy}
+              disabled={typed !== CLOSE_WORD}
+              className="w-full"
+            >
+              Close vault
+            </Button>
+          </>
+        ) : (
+          <p className="text-sm text-pending">
+            Revoke the agent first. Only a paused vault closes.
+          </p>
+        )}
+        <ErrorText error={error} />
+      </div>
     </Card>
   );
 }

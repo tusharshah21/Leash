@@ -11,6 +11,8 @@ import { providerFor, readOnlyWallet } from "./chain";
 const POLL_MS = 15_000;
 const ACTIVITY_POLL_MS = 3_000;
 const HISTORY_LIMIT = 40;
+const NOT_FOUND = /does not exist|has no data|Invalid account discriminator/i;
+const NO_VAULT = "There is no Leash vault at this address.";
 
 type Account<K extends "fetchVault" | "fetchMandate"> = Awaited<ReturnType<LeashClient[K]>>;
 
@@ -74,8 +76,12 @@ export function useVault(address: string) {
         },
       });
       setOffline(false);
-    } catch {
-      setOffline(true);
+    } catch (err) {
+      if (NOT_FOUND.test(String((err as Error)?.message ?? err))) {
+        setState({ status: "missing", reason: NO_VAULT });
+      } else {
+        setOffline(true);
+      }
     } finally {
       running.current = false;
       if (again.current) {
@@ -106,11 +112,8 @@ export function useVault(address: string) {
         unsubscribe = () => void connection.removeOnLogsListener(id);
       } catch (err) {
         if (stopped) return;
-        const notFound = /does not exist|has no data|Invalid account discriminator/i.test(
-          String((err as Error)?.message ?? err)
-        );
-        if (notFound) {
-          setState({ status: "missing", reason: "There is no Leash vault at this address." });
+        if (NOT_FOUND.test(String((err as Error)?.message ?? err))) {
+          setState({ status: "missing", reason: NO_VAULT });
         } else {
           setOffline(true);
           setTimeout(() => !stopped && void start(), POLL_MS);

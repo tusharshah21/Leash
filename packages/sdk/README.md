@@ -41,3 +41,9 @@ Test with `pnpm test:sdk` from the repo root. `anchor test` runs these too. `pnp
 - `client.sendTx(tx)` sends a built transaction through the provider's wallet and maps failures to `LeashTxError`.
 - `sanitizeActivity(entries, vault?)` keeps only whitelisted activity fields. The API route and `demo:snapshot` both use it.
 - `clientFor(key)` in `@leash/sdk/node` honors `LEASH_VAULT`, which is how `--vault` reaches the agent and guard.
+
+## Added for Blinks and retakes
+
+- `client.approveTx`, `rejectTx` and `revokeTx` build unsigned transactions for any authority. `approve`, `reject` and `revoke` send the same ones. An approval also creates the recipient's token account if it is missing.
+- `client.closeVault()` closes a paused vault with every allow entry, returning all tokens and rent to the owner.
+- `fetchPending` starts at the vault's `pendingBase`. Nonces of a new vault are large numbers rather than starting at 0, so use the nonce you are given rather than counting.

@@ -30,6 +30,7 @@ pub fn handle_reject_pending(ctx: Context<RejectPending>, nonce: u64) -> Result<
     let pending = &mut ctx.accounts.pending_action;
 
     ctx.accounts.vault.check_owner_or_device(&authority)?;
+    ctx.accounts.vault.check_current(nonce)?;
     require!(
         pending.status == PendingStatus::Pending,
         LeashError::PendingNotActive

@@ -1,6 +1,9 @@
 import { Buffer } from "buffer";
 import type { AnchorProvider, Program as AnchorProgram } from "@anchor-lang/core";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import {
+  createAssociatedTokenAccountIdempotentInstruction,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction } from "@solana/web3.js";
 import { BN, Program, utils } from "./anchor.js";
 import { errorName, LeashTxError } from "./errors.js";
@@ -108,8 +111,10 @@ export class LeashClient {
 
   /** Every proposal that still has an account, with its nonce, which the account does not store. */
   async fetchPending() {
-    const count = (await this.fetchVault()).pendingNonce.toNumber();
-    const nonces = Array.from({ length: count }, (_, i) => BigInt(i));
+    const { pendingBase, pendingNonce } = await this.fetchVault();
+    const base = big(pendingBase);
+    const count = Number(big(pendingNonce) - base);
+    const nonces = Array.from({ length: count }, (_, i) => base + BigInt(i));
     const addresses = nonces.map((n) => pendingPda(this.vault, n));
     const accounts = await this.program.account.pendingAction.fetchMultiple(addresses);
     return accounts.flatMap((account, i) =>
@@ -210,38 +215,66 @@ export class LeashClient {
     );
   }
 
-  async approve(nonce: bigint, recipientTokenAccount?: PublicKey): Promise<string> {
-    const pendingAction = pendingPda(this.vault, nonce);
-    const [{ mint }, { recipient }] = await Promise.all([
-      this.fetchVault(),
-      this.program.account.pendingAction.fetch(pendingAction),
-    ]);
-    const tx = await this.program.methods
+  /**
+   * Unsigned approval, by a key that need not be this client's wallet. Creates the recipient's
+   * token account if it is missing, since a proposal can name any wallet.
+   */
+  approveTx(
+    nonce: bigint,
+    authority: PublicKey,
+    { mint, recipient }: { mint: PublicKey; recipient: PublicKey }
+  ): Promise<Transaction> {
+    const recipientTokenAccount = getAssociatedTokenAddressSync(mint, recipient);
+    return this.program.methods
       .approvePending(bn(nonce))
       .accountsPartial({
-        authority: this.signer,
+        authority,
         vault: this.vault,
         mandate: this.mandate,
-        pendingAction,
+        pendingAction: pendingPda(this.vault, nonce),
         mint,
         vaultTokenAccount: this.vaultToken,
-        recipientTokenAccount:
-          recipientTokenAccount ?? getAssociatedTokenAddressSync(mint, recipient),
+        recipientTokenAccount,
       })
+      .preInstructions([
+        createAssociatedTokenAccountIdempotentInstruction(
+          authority,
+          recipientTokenAccount,
+          recipient,
+          mint
+        ),
+      ])
       .transaction();
-    return this.send(tx);
   }
 
-  async reject(nonce: bigint): Promise<string> {
-    const tx = await this.program.methods
+  rejectTx(nonce: bigint, authority: PublicKey): Promise<Transaction> {
+    return this.program.methods
       .rejectPending(bn(nonce))
       .accountsPartial({
-        authority: this.signer,
+        authority,
         vault: this.vault,
         pendingAction: pendingPda(this.vault, nonce),
       })
       .transaction();
-    return this.send(tx);
+  }
+
+  revokeTx(authority: PublicKey): Promise<Transaction> {
+    return this.program.methods
+      .revokeAgent()
+      .accountsPartial({ authority, vault: this.vault })
+      .transaction();
+  }
+
+  async approve(nonce: bigint): Promise<string> {
+    const [{ mint }, { recipient }] = await Promise.all([
+      this.fetchVault(),
+      this.program.account.pendingAction.fetch(pendingPda(this.vault, nonce)),
+    ]);
+    return this.send(await this.approveTx(nonce, this.signer, { mint, recipient }));
+  }
+
+  async reject(nonce: bigint): Promise<string> {
+    return this.send(await this.rejectTx(nonce, this.signer));
   }
 
   /** Owner only. Returns a settled proposal's rent to the owner. */
@@ -258,9 +291,38 @@ export class LeashClient {
   }
 
   async revoke(): Promise<string> {
+    return this.send(await this.revokeTx(this.signer));
+  }
+
+  /**
+   * Owner only, on a paused vault. Returns every token and all rent to the owner, and closes every
+   * allow entry, so a vault recreated here starts with an empty allowlist. Pending actions stay
+   * behind inert, and `close` reclaims their rent once a new vault exists.
+   */
+  async closeVault(): Promise<string> {
+    const [{ mint }, allowlist] = await Promise.all([this.fetchVault(), this.fetchAllowlist()]);
+    const ownerTokenAccount = getAssociatedTokenAddressSync(mint, this.owner);
     const tx = await this.program.methods
-      .revokeAgent()
-      .accountsPartial({ authority: this.signer, vault: this.vault })
+      .closeVault()
+      .accountsPartial({
+        owner: this.owner,
+        vault: this.vault,
+        mandate: this.mandate,
+        mint,
+        ownerTokenAccount,
+        vaultTokenAccount: this.vaultToken,
+      })
+      .preInstructions([
+        createAssociatedTokenAccountIdempotentInstruction(
+          this.owner,
+          ownerTokenAccount,
+          this.owner,
+          mint
+        ),
+      ])
+      .remainingAccounts(
+        allowlist.map(({ address }) => ({ pubkey: address, isSigner: false, isWritable: true }))
+      )
       .transaction();
     return this.send(tx);
   }

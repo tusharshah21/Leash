@@ -6,24 +6,30 @@ import { patchClearDevice } from "../packages/sdk/src/tier";
 import {
   addRecipient,
   balance,
+  clockNow,
+  closeVault,
   CONFIRMED,
   connection,
   deposit,
   expectError,
+  eventOf,
   expectEvent,
   FAR_FUTURE,
   funded,
   mint,
   newVault,
   pda,
+  pendingPda,
   program,
   provider,
+  REASON,
   revoke,
   rotate,
   setMandate,
   tokenAccount,
   unpause,
   USDC,
+  waitForClock,
   withdraw,
 } from "./helpers";
 
@@ -39,7 +45,8 @@ describe("leash", () => {
       expect(vault.mint.toBase58()).to.equal(mint.toBase58());
       expect(vault.vaultTokenAccount.toBase58()).to.equal(v.vaultToken.toBase58());
       expect(vault.paused).to.equal(false);
-      expect(vault.pendingNonce.toNumber()).to.equal(0);
+      expect(vault.pendingNonce.toString()).to.equal(vault.pendingBase.toString());
+      expect(vault.pendingBase.gtn(0)).to.equal(true);
 
       const token = await getAccount(connection, v.vaultToken);
       expect(token.owner.toBase58()).to.equal(v.vault.toBase58());
@@ -342,6 +349,173 @@ describe("leash", () => {
       await revoke(v, v.device!);
       await expectError(unpause(v, v.device!), "Unauthorized");
       expect((await program.account.vault.fetch(v.vault)).paused).to.equal(true);
+    });
+  });
+
+  describe("close_vault", () => {
+    /** An active vault with a mandate, 100 dUSDC and one allowlisted recipient. */
+    const ready = async () => {
+      const v = await newVault();
+      await setMandate(v, USDC(1), USDC(2), USDC(3));
+      await deposit(v, USDC(100));
+      const recipient = Keypair.generate().publicKey;
+      await addRecipient(v, recipient);
+      return { v, allow: pda("allow", v.vault, recipient) };
+    };
+
+    const recreate = (v: Awaited<ReturnType<typeof newVault>>) =>
+      program.methods
+        .initVault(v.agent.publicKey, v.guard.publicKey, v.device!.publicKey)
+        .accountsPartial({
+          owner: v.owner.publicKey,
+          vault: v.vault,
+          mint,
+          vaultTokenAccount: v.vaultToken,
+        })
+        .signers([v.owner])
+        .rpc(CONFIRMED);
+
+    const propose = async (v: Awaited<ReturnType<typeof newVault>>, recipient: Keypair) => {
+      const { pendingNonce: nonce } = await program.account.vault.fetch(v.vault);
+      await program.methods
+        .agentPropose(USDC(5), recipient.publicKey, REASON)
+        .accountsPartial({
+          agent: v.agent.publicKey,
+          vault: v.vault,
+          mandate: pda("mandate", v.vault),
+          pendingAction: pendingPda(v.vault, nonce),
+        })
+        .signers([v.agent])
+        .rpc(CONFIRMED);
+      return nonce;
+    };
+
+    /** Closes with a pending action left behind, recreates, and returns what is needed to probe it. */
+    const staleProposal = async () => {
+      const { v, allow } = await ready();
+      await connection
+        .requestAirdrop(v.agent.publicKey, 1e9)
+        .then((sig) => connection.confirmTransaction(sig, "confirmed"));
+      const nonce = await propose(v, v.device!);
+      await revoke(v, v.owner);
+      await closeVault(v, v.owner, [allow]);
+      // pending_base has one-second resolution, and no real close and recreate is faster.
+      await waitForClock((await clockNow()) + 2);
+      await recreate(v);
+      await setMandate(v, USDC(1), USDC(2), USDC(3));
+      await deposit(v, USDC(100));
+      return { v, nonce };
+    };
+
+    it("non_owner_cannot_close", async () => {
+      const { v, allow } = await ready();
+      await revoke(v, v.owner);
+      const attacker = await funded();
+      const attackerToken = await tokenAccount(attacker.publicKey);
+      await expectError(closeVault(v, attacker, [allow], attackerToken), "Unauthorized");
+      await expectError(closeVault(v, v.device!, [allow], attackerToken), "Unauthorized");
+      expect(await balance(v.vaultToken)).to.equal(100_000_000n);
+    });
+
+    it("cannot_close_active_vault", async () => {
+      const { v, allow } = await ready();
+      await expectError(closeVault(v, v.owner, [allow]), "VaultNotPaused");
+      expect(await balance(v.vaultToken)).to.equal(100_000_000n);
+    });
+
+    it("close_returns_funds_and_rent", async () => {
+      const { v, allow } = await ready();
+      await revoke(v, v.owner);
+      const before = await connection.getBalance(v.owner.publicKey, "confirmed");
+      const mandate = pda("mandate", v.vault);
+      const rents = await Promise.all(
+        [v.vault, mandate, v.vaultToken, allow].map((a) => connection.getBalance(a, "confirmed"))
+      );
+
+      const sig = await closeVault(v, v.owner, [allow]);
+
+      expect(await balance(v.ownerToken)).to.equal(1000_000_000n);
+      for (const account of [v.vault, mandate, v.vaultToken, allow]) {
+        expect(await connection.getAccountInfo(account, "confirmed")).to.equal(null);
+      }
+      const after = await connection.getBalance(v.owner.publicKey, "confirmed");
+      const rent = rents.reduce((sum, r) => sum + r, 0);
+      expect(after).to.be.at.least(before + rent - 10_000);
+      const event = await eventOf(sig, "vaultClosed");
+      expect(event.returned.toString()).to.equal("100000000");
+    });
+
+    it("close_rejects_foreign_allow_entry", async () => {
+      const { v, allow } = await ready();
+      const other = await ready();
+      await revoke(v, v.owner);
+      await expectError(closeVault(v, v.owner, [other.allow]), "InvalidRemainingAccount");
+      await expectError(closeVault(v, v.owner, [v.vault]), "InvalidRemainingAccount");
+      expect(await connection.getAccountInfo(other.allow, "confirmed")).to.not.equal(null);
+      await closeVault(v, v.owner, [allow]);
+    });
+
+    it("owner_can_recreate_vault_after_close", async () => {
+      const { v, allow } = await ready();
+      await revoke(v, v.owner);
+      await closeVault(v, v.owner, [allow]);
+
+      await recreate(v);
+      await setMandate(v, USDC(1), USDC(2), USDC(3));
+      await deposit(v, USDC(10));
+
+      const vault = await program.account.vault.fetch(v.vault);
+      expect(vault.paused).to.equal(false);
+      expect(vault.pendingNonce.toString()).to.equal(vault.pendingBase.toString());
+      expect(await balance(v.vaultToken)).to.equal(10_000_000n);
+    });
+
+    it("stale_pending_cannot_be_decided_after_recreate", async () => {
+      const { v, nonce } = await staleProposal();
+      const pendingAction = pendingPda(v.vault, nonce);
+      expect((await program.account.vault.fetch(v.vault)).pendingBase.gt(nonce)).to.equal(true);
+
+      await expectError(
+        program.methods
+          .rejectPending(nonce)
+          .accountsPartial({ authority: v.owner.publicKey, vault: v.vault, pendingAction })
+          .signers([v.owner])
+          .rpc(CONFIRMED),
+        "PendingNotActive"
+      );
+      const recipientToken = await tokenAccount(v.device!.publicKey);
+      await expectError(
+        program.methods
+          .approvePending(nonce)
+          .accountsPartial({
+            authority: v.owner.publicKey,
+            vault: v.vault,
+            mandate: pda("mandate", v.vault),
+            pendingAction,
+            mint,
+            vaultTokenAccount: v.vaultToken,
+            recipientTokenAccount: recipientToken,
+          })
+          .signers([v.owner])
+          .rpc(CONFIRMED),
+        "PendingNotActive"
+      );
+      expect(await balance(v.vaultToken)).to.equal(100_000_000n);
+      expect(await balance(recipientToken)).to.equal(0n);
+    });
+
+    it("stale_pending_can_be_closed_and_proposals_still_work", async () => {
+      const { v, nonce } = await staleProposal();
+      const pendingAction = pendingPda(v.vault, nonce);
+      await program.methods
+        .closePending(nonce)
+        .accountsPartial({ owner: v.owner.publicKey, vault: v.vault, pendingAction })
+        .signers([v.owner])
+        .rpc(CONFIRMED);
+      expect(await connection.getAccountInfo(pendingAction, "confirmed")).to.equal(null);
+
+      const next = await propose(v, v.device!);
+      expect(next.gt(nonce)).to.equal(true);
     });
   });
 

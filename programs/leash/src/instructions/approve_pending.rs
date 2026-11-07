@@ -59,6 +59,7 @@ pub fn handle_approve_pending(ctx: Context<ApprovePending>, nonce: u64) -> Resul
     let pending = &mut ctx.accounts.pending_action;
 
     ctx.accounts.vault.check_owner_or_device(&authority)?;
+    ctx.accounts.vault.check_current(nonce)?;
     pending.check_open(mandate.pending_ttl_secs, now)?;
 
     // Roll first, so the spend counts against the current window and not one that has ended.

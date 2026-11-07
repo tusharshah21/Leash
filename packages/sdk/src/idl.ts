@@ -572,6 +572,98 @@ export type Leash = {
       ]
     },
     {
+      "name": "closeVault",
+      "discriminator": [
+        141,
+        103,
+        17,
+        126,
+        72,
+        75,
+        29,
+        29
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.owner",
+                "account": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mandate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  110,
+                  100,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "ownerTokenAccount",
+          "writable": true
+        },
+        {
+          "name": "vaultTokenAccount",
+          "writable": true,
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "deposit",
       "discriminator": [
         242,
@@ -1401,6 +1493,19 @@ export type Leash = {
       ]
     },
     {
+      "name": "vaultClosed",
+      "discriminator": [
+        238,
+        129,
+        38,
+        228,
+        227,
+        118,
+        249,
+        215
+      ]
+    },
+    {
       "name": "vaultInitialized",
       "discriminator": [
         180,
@@ -1520,6 +1625,11 @@ export type Leash = {
       "code": 6015,
       "name": "pendingStillActive",
       "msg": "Pending action is still pending: approve or reject it first"
+    },
+    {
+      "code": 6016,
+      "name": "invalidRemainingAccount",
+      "msg": "Remaining account is not one of this vault's allow entries"
     }
   ],
   "types": [
@@ -2045,13 +2155,41 @@ export type Leash = {
             "type": "u8"
           },
           {
+            "name": "pendingBase",
+            "docs": [
+              "The first nonce of this vault. A closed vault's pending actions outlive it at the same",
+              "address, so anything below this belongs to an earlier vault and is inert."
+            ],
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
                 "u8",
-                64
+                56
               ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "vaultClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "returned",
+            "type": "u64"
           }
         ]
       }
@@ -2712,6 +2850,98 @@ export const IDL = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "close_vault",
+      "discriminator": [
+        141,
+        103,
+        17,
+        126,
+        72,
+        75,
+        29,
+        29
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.owner",
+                "account": "Vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mandate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  110,
+                  100,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "owner_token_account",
+          "writable": true
+        },
+        {
+          "name": "vault_token_account",
+          "writable": true,
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
     },
     {
       "name": "deposit",
@@ -3543,6 +3773,19 @@ export const IDL = {
       ]
     },
     {
+      "name": "VaultClosed",
+      "discriminator": [
+        238,
+        129,
+        38,
+        228,
+        227,
+        118,
+        249,
+        215
+      ]
+    },
+    {
       "name": "VaultInitialized",
       "discriminator": [
         180,
@@ -3662,6 +3905,11 @@ export const IDL = {
       "code": 6015,
       "name": "PendingStillActive",
       "msg": "Pending action is still pending: approve or reject it first"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidRemainingAccount",
+      "msg": "Remaining account is not one of this vault's allow entries"
     }
   ],
   "types": [
@@ -4187,13 +4435,41 @@ export const IDL = {
             "type": "u8"
           },
           {
+            "name": "pending_base",
+            "docs": [
+              "The first nonce of this vault. A closed vault's pending actions outlive it at the same",
+              "address, so anything below this belongs to an earlier vault and is inert."
+            ],
+            "type": "u64"
+          },
+          {
             "name": "_reserved",
             "type": {
               "array": [
                 "u8",
-                64
+                56
               ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "returned",
+            "type": "u64"
           }
         ]
       }

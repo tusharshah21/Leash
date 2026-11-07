@@ -1,4 +1,5 @@
 // pnpm agent [--vault <address>] "<task>". Holds only the agent key.
+import { notifyPending } from "./notify.ts";
 import { parseArgs } from "node:util";
 import { appendActivity, clientFor, readKeypair, redact } from "@leash/sdk/node";
 import OpenAI from "openai";
@@ -27,6 +28,7 @@ const run = makeTools({
   client,
   invoicesDir: process.env.LEASH_INVOICES_DIR || "demo/invoices",
   review: (proposal, nonce) => requestReview(guardUrl, { userTask: task, proposal, nonce }),
+  notify: (notice) => notifyPending(notice),
   log,
   makeGuard: (proposal, onDecision) =>
     guardSigner({

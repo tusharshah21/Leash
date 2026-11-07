@@ -16,6 +16,7 @@ const MESSAGES = {
   RecipientMismatch: "Token account does not match the recipient",
   MathOverflow: "Amount is too large",
   PendingStillActive: "Approve or reject the proposal first",
+  InvalidRemainingAccount: "That account is not one of this vault's allow entries",
 } as const;
 
 export type LeashErrorName = keyof typeof MESSAGES;

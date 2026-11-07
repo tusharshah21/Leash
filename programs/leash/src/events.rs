@@ -101,6 +101,13 @@ pub struct ActionRejected {
 }
 
 #[event]
+pub struct VaultClosed {
+    pub vault: Pubkey,
+    pub owner: Pubkey,
+    pub returned: u64,
+}
+
+#[event]
 pub struct PendingClosed {
     pub vault: Pubkey,
     pub nonce: u64,

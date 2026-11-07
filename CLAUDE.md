@@ -9,10 +9,10 @@ Onchain firewall for AI agents, built for the MLH Solana Hackathon (Nov 6-8, 202
 | `programs/leash` | Phase 3, deployed | The Anchor program |
 | `tests/` | Phase 3 | Mocha tests against a local validator: `helpers.ts` (shared), `leash.ts` (owner paths), `attacks.ts` (tier routing, attacks, approvals) |
 | `packages/sdk` | Phase 4 | The shared client: `LeashClient`, events, error messages, `classifyTier`, `verifyReasoning`. `@leash/sdk/node` adds logging and key loading. See its README |
-| `scripts` | Phase 5 | `deploy-devnet.sh`, `bootstrap-devnet.ts`, `smoke-devnet.ts`, `setup-vault.ts`, `gen-invoices.ts`, `demo-fresh.ts`, `demo-run.ts`, `demo-faucet.ts`, `demo-snapshot.ts` |
+| `scripts` | Phase 6 | `deploy-devnet.sh`, `bootstrap-devnet.ts`, `smoke-devnet.ts`, `setup-vault.ts`, `gen-invoices.ts`, `demo-fresh.ts`, `demo-run.ts`, `demo-faucet.ts`, `demo-snapshot.ts`, `guard-reset-demo.ts` |
 | `apps/agent` | Phase 4 | The executor: OpenAI tool loop, reads untrusted invoices, holds only the agent key |
 | `apps/guard` | Phase 4 | The guard: localhost HTTP service, decodes before signing, holds only the guard key |
-| `apps/web` | Phase 5 | The console: landing, `/console/[vault]`, `/create`. Pure merge logic in `lib/timeline.ts`. See its README |
+| `apps/web` | Phase 6 | The console: landing, `/console/[vault]`, `/create`, `/blink`, and Solana Actions under `/api/actions`. Handlers are pure in `lib/actions.ts`. Pure merge logic in `lib/timeline.ts`. See its README |
 | `apps/mcp` | Stub | MCP server |
 | `device/unoq` | Stub | Hardware device key firmware |
 | `demo` | Phase 4 | `devnet.json` (public addresses), `invoices/` and `scenarios/` (what the agent reads, and the expected outcomes) |
@@ -49,9 +49,10 @@ Logs are gitignored and redacted: `logs/guard.jsonl` (every decision) and `logs/
 | Upgrade authority | `2pJ8gVQmeTdyh2Ewz5H6zn4Z13J9fQkRheHiNi2pHFD8` (the CLI wallet) |
 | Deploy tx | `52PX6n6mQvYEgWXqezbdFdyJ8WoG4fPpDMZCov6RY3kZTFEr1AonhQiueudV1rgV7db273e2DU46Rqiz9bkMgcsM` |
 | IDL | Onchain through the program metadata program, account `FdBCrdS4bsDgZ7Ad9K3QWdNyHZt2dqKNZExHqQuBf13w` |
-| Size | 326,456 bytes, with no spare capacity. A bigger build needs `solana program extend` first |
+| Last upgrade tx | `5eamy14wDYwdNz4TQrz5FGPhT5LBVkQbfj8q18LoUExyRDTMFeTNCcbFuR9Ekoux2qeuj4RA7tTtzSkp3jCYpjo7` |
+| Size | 349,304 bytes, with no spare capacity. A bigger build needs `solana program extend` first |
 
-An upgrade temporarily ties up about 1.66 SOL for its buffer, refunded when it finishes, so top up the CLI wallet from `browserWallet` first. After an upgrade that changes the interface, run `pnpm build:sdk`.
+An upgrade temporarily ties up about 1.78 SOL for its buffer, refunded when it finishes, so top up the CLI wallet from `browserWallet` first. After an upgrade that changes the interface, run `pnpm build:sdk`.
 
 The demo vault's secret keys live in `keys/`, which is gitignored. A run of `pnpm smoke:devnet` uses 28 dUSDC of the vault's 500 daily cap until the window resets.
 
@@ -59,7 +60,7 @@ The demo vault's secret keys live in `keys/`, which is gitignored. A run of `pnp
 
 | Account | Seeds | Holds |
 |---|---|---|
-| Vault | `["vault", owner]` | owner, agent, guard, device, mint, token account, paused, pending_nonce |
+| Vault | `["vault", owner]` | owner, agent, guard, device, mint, token account, paused, pending_nonce, pending_base |
 | Vault token account | `["vault_token", vault]` | The funds. Authority is the vault PDA |
 | Mandate | `["mandate", vault]` | low_threshold, per_tx_max, daily_cap, spent_today, window_start, expires_at, window_secs, pending_ttl_secs |
 | AllowEntry | `["allow", vault, recipient]` | recipient, label, per_recipient_cap |
@@ -69,7 +70,7 @@ The demo vault's secret keys live in `keys/`, which is gitignored. A run of `pnp
 
 | Signer | Instructions |
 |---|---|
-| Owner | `init_vault`, `set_mandate`, `add_recipient`, `remove_recipient`, `deposit`, `withdraw`, `unpause`, `rotate_keys`, `close_pending` |
+| Owner | `init_vault`, `set_mandate`, `add_recipient`, `remove_recipient`, `deposit`, `withdraw`, `unpause`, `rotate_keys`, `close_pending`, `close_vault` |
 | Owner or device | `revoke_agent`, `approve_pending`, `reject_pending` |
 | Agent | `agent_execute` (plus the guard for MEDIUM), `agent_propose` |
 
@@ -113,6 +114,7 @@ The demo vault's secret keys live in `keys/`, which is gitignored. A run of `pnp
 | 6013 | `RecipientMismatch` | Approve to a token account with the wrong owner or mint |
 | 6014 | `MathOverflow` | Checked arithmetic overflowed |
 | 6015 | `PendingStillActive` | Close while status is still `Pending` |
+| 6016 | `InvalidRemainingAccount` | `close_vault` given something other than this vault's allow entries |
 
 ### Compute units
 
@@ -219,6 +221,9 @@ pnpm demo:faucet <wallet> <dUSDC> --sol <n>
 ```bash
 pnpm demo:snapshot --vault <vault>
 ```
+```bash
+pnpm guard:reset-demo --vault <vault>
+```
 
 The apps run on Node's native TypeScript with `.ts` imports and no build step, but they import the SDK's `dist/`, so run `pnpm build:sdk` first. `pnpm test:apps` needs no network or LLM unless `RUN_LLM=1`. `pnpm demo:fresh` costs about 0.0135 SOL from the CLI wallet. `pnpm demo:run` exits non-zero if the outcome differs from `demo/scenarios/*.json`.
 
@@ -254,7 +259,7 @@ Newest last.
 5. **`AllowEntry.recipient` is a wallet.** Phase 2 checks the destination token account's `owner` and `mint` at execution time.
 6. **`per_recipient_cap` is a per-transaction cap.** `AllowEntry` has no spent counter, so a cumulative cap would need a new field.
 7. **Known limitation: one vault, and so one mint, per owner.** Seeds stay `["vault", owner]`, and a single mint (dUSDC) is enough for the hackathon. Upgrade path for the README roadmap: add the mint to the seeds, `["vault", owner, mint]`, which requires a redeploy.
-8. **No `close_vault` for now.** Noted in the README roadmap.
+8. **No `close_vault` for now.** Noted in the README roadmap. Replaced by Decision 48.
 9. **`rotate_keys` added in Phase 1.** Without it, `unpause` would revive a leaked agent key and the owner could not create a replacement vault. Rotating the agent requires the vault to be paused first.
 10. **`withdraw` works while paused,** so the owner can always pull funds during an incident.
 11. **`rotate_keys` takes `new_device: Option<Option<Pubkey>>`, and Anchor's TS coder cannot encode `Some(None)`.** It encodes `null` as the outer `None`, so removing the device key from TypeScript requires patching the instruction data: replace the trailing `0x00` with `0x01 0x00`. `patchClearDevice` in `packages/sdk/src/tier.ts` does this.
@@ -295,7 +300,15 @@ Newest last.
 45. **Anchor's browser build needs `fs` aliased away.** It references `fs` in `NodeWallet.local`, which a browser never calls, so `next.config.ts` points it at `lib/empty.ts` through Turbopack's `resolveAlias`.
 46. **The dev burner is opt-in through `NEXT_PUBLIC_DEV_BURNER_KEY`,** because automation cannot click a wallet extension. It must stay unset on a deployment, where it would publish the key.
 47. **Demo vault owners need a faucet, and retakes have limits.** `pnpm demo:faucet` uses the CLI wallet's mint authority. One vault per owner plus the guard's 24-hour duplicate rule mean a second `demo:run` on one vault gets its MEDIUM payments refused, which is correct.
+48. **`close_vault` exists, for demo retakes.** Owner only, on a paused vault. It returns every token and all rent, and closes the token account, mandate, vault and each allow entry passed. The SDK always passes all of them, because the program cannot count them, and a leftover entry would still apply to a vault recreated at that address.
+49. **`pending_base` makes a closed vault's proposals inert.** A recreated vault has the same address, so restarting at nonce 0 would collide with old PendingActions, block `agent_propose`, let a stale proposal pay from the new vault, and mix the timeline. `init_vault` sets `pending_base = pending_nonce = unix_time * 65536`. `approve_pending` and `reject_pending` refuse anything below it, and `close_pending` reclaims its rent at any status. It comes out of `_reserved`, so size and offsets are unchanged and existing vaults read 0. Resolution is one second, so a close and recreate inside the same second would not separate them; nothing real is that fast.
+50. **In `close_vault`, allow entries close after the token CPIs.** Moving lamports first fails with "sum of account balances", because the runtime checks the caller's balances when a CPI that touches the destination is pushed.
+51. **The Actions spec is implemented directly, not through `@solana/actions`.** Only its header constants would be used, copied into `lib/actions.ts`, and it would add a second web3.js constraint.
+52. **The QR opens our own `/blink` page in Phantom, not dial.to.** On 2026-11-07 dial.to served `DEPLOYMENT_PAUSED` and docs.dialect.to did not resolve, so `phantomUrl` uses Phantom's browse deeplink, and `/blink` is a small Actions client limited to our own routes. `dialUrl` remains as a secondary link in case dial.to returns.
+53. **Blink text separates chain facts from claims.** Title, amount, recipient and allowlist status come from the chain. Reasoning appears only if its hash matches the onchain `reason_hash`, and is labelled "Agent claims". Telegram messages carry no model text.
+54. **A deployed Blink has offchain context only from the committed snapshot,** which is bundled at build time. Newer proposals show chain facts and "No verified reasoning". Rerun `pnpm demo:snapshot`, commit and redeploy to include them.
+55. **`pnpm deploy:devnet` can stall on Helius after an extend.** Helius returned stale results for the new buffer, and the deploy failed with "already in use" holding 1.78 SOL in it. The public endpoint saw the buffer, byte-identical to the build, and `solana program upgrade <buffer> <program>` through it finished the job. Check the buffer on another RPC before assuming the SOL is gone.
 
 ## Phase status
 
-Phase 5 is complete: the console works on devnet with a burner wallet through the full flow (create, `demo:run --vault`, live timeline, reject, revoke, approve while paused, unpause). `pnpm test:apps` runs 50 tests (one skipped without `RUN_LLM`), and `pnpm test:all` runs 92 against the program and SDK. The same flow with Phantom has not been run yet, since it needs a person to click the wallet. Screenshots are in `docs/screenshots/`.
+Phase 6 is complete on devnet: `close_vault` is deployed, the retake loop ran with a burner wallet (revoke, close, recreate at `/create`, `guard:reset-demo`, `demo:run --vault` matching the scenarios), and Blink transactions from the Actions endpoints were signed and landed. `pnpm test:apps` runs 78 tests (one skipped without `RUN_LLM`), and `pnpm test:all` runs 99 against the program and SDK. Not yet run: Phantom on desktop or mobile, the deployed site, and the Phantom deeplink on a real phone, all of which need a person or the Vercel URL. Screenshots are in `docs/screenshots/`.

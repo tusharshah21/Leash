@@ -3,14 +3,17 @@
 import type { ActivityEntry } from "@leash/sdk";
 import { ShieldAlert } from "lucide-react";
 import { useState } from "react";
+import { pendingPath } from "@/lib/actions";
 import { dusdc, short, txUrl } from "@/lib/chain";
 import { proposalContext } from "@/lib/timeline";
 import type { useSigner, VaultData } from "@/lib/use-vault";
+import { PhoneLink } from "./phone-link";
 import { Address, Button, Card, Confirm, Countdown, ErrorText, humanError } from "./ui";
 
 interface Props {
   pending: VaultData["pending"];
   activity: ActivityEntry[];
+  address: string;
   labels: Map<string, string>;
   listed: Set<string>;
   ttl: number;
@@ -48,6 +51,7 @@ export function PendingQueue(props: Props) {
 function PendingCard({
   item,
   activity,
+  address,
   labels,
   listed,
   ttl,
@@ -169,6 +173,11 @@ function PendingCard({
         >
           Reject
         </Button>
+        <PhoneLink
+          path={pendingPath(address, nonce)}
+          label="Approve from phone"
+          title="Decide this from your phone"
+        />
         {!isOwner && (
           <p className="text-xs text-muted">
             Connect the owner wallet to decide this.

@@ -24,6 +24,18 @@ The hidden text is white on white in the PDFs and an HTML comment in the `txt/` 
 
 `pnpm demo:run --vault <vault>` runs the same scenarios against a vault you created at `/create` in the console. It does not need the owner's key. It tops up the agent if low, checks that all three vendors are allowlisted, and measures `spent_today` as a before and after difference.
 
-A second run on one vault gets its MEDIUM payments refused as duplicates for 24 hours, which is correct, so rehearse on a throwaway vault and record once.
+A second run on one vault gets its MEDIUM payments refused as duplicates for 24 hours, which is correct.
+
+## Retakes
+
+1. In the console, revoke the agent, then close the vault in the danger zone. Tokens and rent return to your wallet, and the daily cap goes with the mandate.
+2. Create the vault again at `/create`. It has the same address and a clean timeline. A proposal left over from the old vault can never be approved, and its rent can be reclaimed with `client.close(nonce)`.
+3. Clear that vault's guard history, which is moved to `logs/guard-archive.jsonl`:
+
+```bash
+pnpm guard:reset-demo --vault <vault>
+```
+
+4. Run `pnpm demo:run --vault <vault>` again.
 
 `pnpm demo:faucet <wallet> <dUSDC> [--sol n]` funds a wallet with test tokens. `pnpm demo:snapshot --vault <vault>` exports sanitized activity to `apps/web/public/activity-snapshot.json` for a deployed console.

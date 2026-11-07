@@ -24,6 +24,51 @@ const item = (signature: string, blockTime: number, events: LeashEvent[]): Histo
   events,
 });
 
+test("a closed vault's rows are gone from the timeline of the vault recreated there", () => {
+  const rows = buildTimeline({
+    history: [
+      item("new", 300, [
+        event("actionExecuted", {
+          tier: { low: {} },
+          amount: big(1),
+          recipient: vendor,
+          reasonHash: reasonHash("x"),
+        }),
+      ]),
+      item("close", 200, [event("vaultClosed", {})]),
+      item("old", 100, [
+        event("actionExecuted", {
+          tier: { low: {} },
+          amount: big(2),
+          recipient: vendor,
+          reasonHash: reasonHash("x"),
+        }),
+      ]),
+    ],
+    activity: [
+      {
+        ts: new Date(100_000).toISOString(),
+        actor: "agent",
+        kind: "pay",
+        error: "old denial",
+        verdict: "deny",
+        amount: "3",
+        recipient: vendor.toBase58(),
+      },
+      {
+        ts: new Date(250_000).toISOString(),
+        actor: "agent",
+        kind: "pay",
+        error: "new denial",
+        verdict: "deny",
+        amount: "4",
+        recipient: vendor.toBase58(),
+      },
+    ],
+  });
+  assert.deepEqual(rows.map((r) => r.amount).sort(), ["1", "4"]);
+});
+
 const executed = (reasoning: string) =>
   event("actionExecuted", {
     tier: { medium: {} },

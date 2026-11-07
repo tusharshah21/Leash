@@ -297,7 +297,9 @@ describe("Attacks", () => {
     const pending = await pendingOf(v, nonce);
     expect(pending.status).to.deep.equal({ pending: {} });
     expect(pending.recipient.toBase58()).to.equal(attacker.toBase58());
-    expect((await program.account.vault.fetch(v.vault)).pendingNonce.toNumber()).to.equal(1);
+    expect((await program.account.vault.fetch(v.vault)).pendingNonce.toString()).to.equal(
+      nonce.addn(1).toString()
+    );
     expect(await balance(attackerToken)).to.equal(0n);
     expect(await balance(v.vaultToken)).to.equal(units(VAULT_BALANCE));
   });
@@ -482,8 +484,7 @@ describe("Approvals", () => {
     const v = await armed();
     const first = await propose(v, USDC(1), v.recipient);
     const second = await propose(v, USDC(2), v.recipient);
-    expect(first.nonce.toNumber()).to.equal(0);
-    expect(second.nonce.toNumber()).to.equal(1);
+    expect(second.nonce.toString()).to.equal(first.nonce.addn(1).toString());
     await approve(v, second.nonce);
     await expectFunds(v, VAULT_BALANCE - 2, 2);
     expect((await pendingOf(v, first.nonce)).status).to.deep.equal({ pending: {} });

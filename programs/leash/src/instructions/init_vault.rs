@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-use crate::{validate_keys, Vault, VaultInitialized, VAULT_SEED, VAULT_TOKEN_SEED};
+use crate::{
+    validate_keys, LeashError, Vault, VaultInitialized, NONCES_PER_SECOND, VAULT_SEED,
+    VAULT_TOKEN_SEED,
+};
 
 #[derive(Accounts)]
 pub struct InitVault<'info> {
@@ -50,9 +53,13 @@ pub fn handle_init_vault(
     vault.mint = ctx.accounts.mint.key();
     vault.vault_token_account = ctx.accounts.vault_token_account.key();
     vault.paused = false;
-    vault.pending_nonce = 0;
+    let now = u64::try_from(Clock::get()?.unix_timestamp).map_err(|_| LeashError::MathOverflow)?;
+    vault.pending_base = now
+        .checked_mul(NONCES_PER_SECOND)
+        .ok_or(LeashError::MathOverflow)?;
+    vault.pending_nonce = vault.pending_base;
     vault.bump = ctx.bumps.vault;
-    vault._reserved = [0; 64];
+    vault._reserved = [0; 56];
 
     emit!(VaultInitialized {
         vault: vault.key(),

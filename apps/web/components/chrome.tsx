@@ -61,9 +61,9 @@ function WalletMenu() {
         aria-haspopup="menu"
         className="mono flex h-10 cursor-pointer items-center gap-2 border whitespace-nowrap border-line-strong bg-surface px-3 text-sm transition-colors hover:bg-raised"
       >
-        <Wallet size={16} aria-hidden="true" />
+        <Wallet size={16} aria-hidden="true" className="hidden sm:block" />
         {label}
-        <ChevronDown size={14} aria-hidden="true" />
+        <ChevronDown size={14} aria-hidden="true" className="hidden sm:block" />
       </button>
       {open && (
         <div
@@ -115,7 +115,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-4 px-4 md:px-8">
-        <div className="flex items-center gap-6 md:gap-8">
+        <div className="flex items-center gap-3 sm:gap-6 md:gap-8">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-wide">
             <Logo />
             <span className="mono">LEASH</span>

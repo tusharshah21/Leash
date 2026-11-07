@@ -1,4 +1,5 @@
 // The executor's tools. `pay` goes through the SDK's act(), so the mandate picks the tier.
+import type { PendingNotice } from "./notify.ts";
 import {
   describeError,
   type LeashClient,
@@ -84,10 +85,12 @@ export interface ToolDeps {
     proposal: { recipient: string; amount: string; memo: string; reasoning: string },
     nonce: string
   ): Promise<{ risk?: number; rationale?: string }>;
+  /** Optional message to the human that a proposal is waiting. Never affects the proposal. */
+  notify?(notice: PendingNotice): Promise<boolean>;
   log(line: string): void;
 }
 
-export function makeTools({ client, invoicesDir, makeGuard, review, log }: ToolDeps) {
+export function makeTools({ client, invoicesDir, makeGuard, review, notify, log }: ToolDeps) {
   async function pay(a: { recipient: string; amount: number; memo: string; reasoning: string }) {
     const amount = toBaseUnits(a.amount);
     const recipient = new PublicKey(a.recipient);
@@ -125,6 +128,17 @@ export function makeTools({ client, invoicesDir, makeGuard, review, log }: ToolD
         await review(proposal, nonce).then(
           (r) => log(`  Guard review, risk ${r.risk ?? "-"}: ${r.rationale ?? ""}`),
           (err) => log(`  Guard review unavailable: ${describeError(err)}`)
+        );
+      }
+      if (nonce && notify) {
+        await notify({
+          vault: client.vault.toBase58(),
+          nonce,
+          amount: proposal.amount,
+          recipient: a.recipient,
+        }).then(
+          (sent) => sent && log("  Sent the approval link to Telegram."),
+          () => log("  Telegram notification failed.")
         );
       }
       return { status, tier: result.tier, signature: result.signature };

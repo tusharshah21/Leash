@@ -36,4 +36,6 @@ pub enum LeashError {
     MathOverflow,
     #[msg("Pending action is still pending: approve or reject it first")]
     PendingStillActive,
+    #[msg("Remaining account is not one of this vault's allow entries")]
+    InvalidRemainingAccount,
 }

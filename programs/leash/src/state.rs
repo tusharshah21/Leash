@@ -15,8 +15,14 @@ pub struct Vault {
     pub paused: bool,
     pub pending_nonce: u64,
     pub bump: u8,
-    pub _reserved: [u8; 64],
+    /// The first nonce of this vault. A closed vault's pending actions outlive it at the same
+    /// address, so anything below this belongs to an earlier vault and is inert.
+    pub pending_base: u64,
+    pub _reserved: [u8; 56],
 }
+
+// New fields come out of _reserved: the account size must not change.
+const _: () = assert!(Vault::INIT_SPACE == 267);
 
 impl Vault {
     /// Gate shared by agent_execute and agent_propose. The order sets which error an attack sees.
@@ -24,6 +30,12 @@ impl Vault {
         require!(!self.paused, LeashError::VaultPaused);
         require!(*signer == self.agent, LeashError::Unauthorized);
         require!(now < mandate.expires_at, LeashError::MandateExpired);
+        Ok(())
+    }
+
+    /// Gate shared by approve_pending and reject_pending.
+    pub fn check_current(&self, nonce: u64) -> Result<()> {
+        require!(nonce >= self.pending_base, LeashError::PendingNotActive);
         Ok(())
     }
 

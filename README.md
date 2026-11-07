@@ -14,6 +14,10 @@ Built for the MLH Solana Hackathon, November 2026. Contributor setup and command
 
 ![The console with an attacker's payment waiting in the pending queue](docs/screenshots/console-1440.png)
 
+## Decide from your phone
+
+Every pending card has an **Approve from phone** button with a QR code. Scanning it opens the proposal in Phantom's in-app browser, where the owner connects and taps Approve or Reject. **Revoke from phone** is the same for the kill switch. Under it are standard [Solana Actions](https://solana.com/docs/tools/actions) at `/api/actions`, so any Blink client can use them. Text the agent wrote is shown only if it matches the hash stored onchain, and is labelled as a claim. See [apps/web/README.md](apps/web/README.md).
+
 ## How the guard works
 
 An AI executor reads invoices and can be fooled by what is in them. The guard is a separate service with its own key, and it never sees those documents. A medium-risk payment cannot land without its signature, and it signs only after these steps, in order. Any error means no signature.
@@ -59,4 +63,3 @@ Known limits:
 ## Roadmap
 
 - **Multiple mints per owner.** Today each owner has one vault and one mint (dUSDC), because vault seeds are `["vault", owner]`. The upgrade path is to add the mint to the seeds: `["vault", owner, mint]`.
-- **`close_vault`.** Today a vault cannot be closed. Closing would return rent and free the owner's vault address.

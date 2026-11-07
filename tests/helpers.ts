@@ -187,6 +187,29 @@ export const addRecipient = (
     .signers([signer])
     .rpc(CONFIRMED);
 
+/** Closes the vault. Every allow entry passed goes with it. */
+export const closeVault = (
+  v: Ctx,
+  signer: Keypair = v.owner,
+  allowEntries: PublicKey[] = [],
+  to: PublicKey = v.ownerToken
+) =>
+  program.methods
+    .closeVault()
+    .accountsPartial({
+      owner: signer.publicKey,
+      vault: v.vault,
+      mandate: pda("mandate", v.vault),
+      mint,
+      ownerTokenAccount: to,
+      vaultTokenAccount: v.vaultToken,
+    })
+    .remainingAccounts(
+      allowEntries.map((pubkey) => ({ pubkey, isSigner: false, isWritable: true }))
+    )
+    .signers([signer])
+    .rpc(CONFIRMED);
+
 export const balance = async (account: PublicKey) =>
   (await getAccount(connection, account, "confirmed")).amount;
 

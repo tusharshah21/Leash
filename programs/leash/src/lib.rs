@@ -97,4 +97,8 @@ pub mod leash {
     pub fn close_pending(ctx: Context<ClosePending>, nonce: u64) -> Result<()> {
         instructions::close_pending::handle_close_pending(ctx, nonce)
     }
+
+    pub fn close_vault<'info>(ctx: Context<'info, CloseVault<'info>>) -> Result<()> {
+        instructions::close_vault::handle_close_vault(ctx)
+    }
 }

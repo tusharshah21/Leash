@@ -24,6 +24,7 @@
     "demo:fresh": "node --env-file-if-exists=.env scripts/demo-fresh.ts",
     "demo:run": "node --env-file-if-exists=.env scripts/demo-run.ts",
     "demo:faucet": "node --env-file-if-exists=.env scripts/demo-faucet.ts",
+    "guard:reset-demo": "node --env-file-if-exists=.env scripts/guard-reset-demo.ts",
     "demo:snapshot": "node --env-file-if-exists=.env scripts/demo-snapshot.ts",
     "dev:web": "pnpm --filter web dev"
   },

@@ -29,11 +29,13 @@ pub struct ClosePending<'info> {
 /// Rent goes to the owner, even though the agent paid it: a refund to the payer would hand SOL
 /// to a leaked agent key. See Decision 24 in CLAUDE.md.
 pub fn handle_close_pending(ctx: Context<ClosePending>, nonce: u64) -> Result<()> {
+    // Below pending_base it belongs to a closed vault and can never be decided, at any status.
     require!(
-        matches!(
-            ctx.accounts.pending_action.status,
-            PendingStatus::Executed | PendingStatus::Rejected
-        ),
+        nonce < ctx.accounts.vault.pending_base
+            || matches!(
+                ctx.accounts.pending_action.status,
+                PendingStatus::Executed | PendingStatus::Rejected
+            ),
         LeashError::PendingStillActive
     );
 

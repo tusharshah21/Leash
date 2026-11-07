@@ -27,6 +27,23 @@ export interface Decision {
 const DAY_MS = 86_400_000;
 const normalize = (memo: string) => memo.toLowerCase().replace(/\s+/g, " ").trim();
 
+/** Lines of guard.jsonl split by whether they belong to a vault. Unreadable lines are kept. */
+export function splitByVault(lines: string[], vault: string) {
+  const keep: string[] = [];
+  const removed: string[] = [];
+  for (const line of lines) {
+    if (!line) continue;
+    let ours = false;
+    try {
+      ours = JSON.parse(line).vault === vault;
+    } catch {
+      // Not ours to judge.
+    }
+    (ours ? removed : keep).push(line);
+  }
+  return { keep, removed };
+}
+
 /** The reason to refuse, or null. */
 export function ruleViolation(state: ChainState): string | null {
   if (state.paused) return "vault is paused";
