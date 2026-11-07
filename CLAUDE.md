@@ -13,8 +13,7 @@ Onchain firewall for AI agents, built for the MLH Solana Hackathon (Nov 6-8, 202
 | `apps/agent` | Phase 4 | The executor: OpenAI tool loop, reads untrusted invoices, holds only the agent key |
 | `apps/guard` | Phase 4 | The guard: localhost HTTP service, decodes before signing, holds only the guard key |
 | `apps/web` | Phase 6 | The console: landing, `/console/[vault]`, `/create`, `/blink`, and Solana Actions under `/api/actions`. Handlers are pure in `lib/actions.ts`. Pure merge logic in `lib/timeline.ts`. See its README |
-| `apps/mcp` | Stub | MCP server |
-| `device/unoq` | Stub | Hardware device key firmware |
+| `device/unoq` | Prototype | Hardware device key on an Arduino UNO Q. In progress, no firmware committed, not part of the demo |
 | `demo` | Phase 4 | `devnet.json` (public addresses), `invoices/` and `scenarios/` (what the agent reads, and the expected outcomes) |
 
 ### The AI layer
@@ -231,7 +230,7 @@ The devnet commands read `LEASH_RPC_URL` from `.env` (see `.env.example`) and fa
 
 `pnpm test:fast` (plain `anchor test`) takes about 70 seconds and skips the two tests that wait out the 60-second minimum durations. `pnpm test:all` sets `RUN_SLOW=1` to include them and takes about 3 minutes. Both also run the SDK tests and stop the validator when they finish. `pnpm test:sdk` runs alone in under a second.
 
-The program keypair is `target/deploy/leash-keypair.json`, which is gitignored. Back it up: deleting `target/` without a copy changes the program ID.
+The program keypair is `target/deploy/leash-keypair.json`, which is gitignored, so a fresh clone gets a program ID mismatch from `anchor build`. Build with `anchor build --ignore-keys`, then `anchor test --skip-build`, as the README says. Back it up: deleting `target/` without a copy changes the program ID.
 
 ## Coding conventions
 
@@ -312,4 +311,4 @@ Newest last.
 
 ## Phase status
 
-Phase 6 is complete on devnet: `close_vault` is deployed, the retake loop ran with a burner wallet (revoke, close, recreate at `/create`, `guard:reset-demo`, `demo:run --vault` matching the scenarios), and Blink transactions from the Actions endpoints were signed and landed. `pnpm test:apps` runs 78 tests (one skipped without `RUN_LLM`), and `pnpm test:all` runs 99 against the program and SDK. Not yet run: Phantom on desktop or mobile, the deployed site, and the Phantom deeplink on a real phone, all of which need a person or the Vercel URL. Screenshots are in `docs/screenshots/`.
+Phase 6 is complete on devnet: `close_vault` is deployed, the retake loop ran with a burner wallet (revoke, close, recreate at `/create`, `guard:reset-demo`, `demo:run --vault` matching the scenarios), and Blink transactions from the Actions endpoints were signed and landed. `pnpm test:apps` runs 81 tests (one skipped without `RUN_LLM`), and `pnpm test:all` runs 99 against the program and SDK. Not yet run: Phantom on desktop or mobile, the deployed site, and the Phantom deeplink on a real phone, all of which need a person or the Vercel URL. Screenshots are in `docs/screenshots/`.
