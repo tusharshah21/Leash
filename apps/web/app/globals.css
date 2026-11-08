@@ -166,6 +166,19 @@ dialog::backdrop {
   background: #000000a6;
 }
 
+.tour-body ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.tour-body li + li {
+  margin-top: 0.5rem;
+}
+
+.tour-body strong:not([class]) {
+  color: var(--color-ink);
+}
+
 input[type="range"] {
   accent-color: var(--color-safe);
 }

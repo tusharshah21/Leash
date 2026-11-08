@@ -6,6 +6,7 @@ import { ChevronDown, LogOut, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { addressUrl, DEMO_VAULT, PROGRAM, short } from "@/lib/chain";
+import { Tour } from "./tour";
 
 export function Logo() {
   return (
@@ -134,6 +135,7 @@ export function Header() {
             <span className="h-1.5 w-1.5 rounded-full bg-pending" aria-hidden="true" />
             Devnet
           </span>
+          <Tour />
           <WalletMenu />
         </div>
       </div>
