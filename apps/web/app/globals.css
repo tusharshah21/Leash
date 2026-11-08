@@ -85,6 +85,17 @@ body {
     row-flash 1400ms ease-out;
 }
 
+/* The landing replay: rows land one after another, like the console filling during a run. */
+@keyframes replay-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.replay-row {
+  animation: replay-in 420ms var(--ease-out-quick) both;
+}
+
 @keyframes gauge-in {
   from {
     transform: scaleX(0);

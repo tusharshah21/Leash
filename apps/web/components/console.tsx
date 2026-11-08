@@ -170,7 +170,7 @@ function Ready({
       </Card>
 
       <div className="grid items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,5fr)_minmax(0,6fr)]">
-        <div className="space-y-4 lg:row-span-2 xl:row-span-1">
+        <div className="order-3 space-y-4 lg:order-none lg:row-span-2 xl:row-span-1">
           <MandateCard mandate={mandate} skew={clockSkew} />
           <KillSwitch
             address={address}
@@ -182,7 +182,7 @@ function Ready({
           />
           {isOwner && <DangerZone paused={vault.paused} balance={data.balance} signer={signer} />}
         </div>
-        <div className="min-w-0">
+        <div className="order-1 min-w-0 lg:order-none">
           <PendingQueue
             pending={open}
             activity={activity}
@@ -197,8 +197,14 @@ function Ready({
             refresh={refresh}
           />
         </div>
-        <div className="min-w-0">
-          <Timeline rows={rows} labels={labels} address={address} offline={offline} />
+        <div className="order-2 min-w-0 lg:order-none">
+          <Timeline
+            rows={rows}
+            labels={labels}
+            address={address}
+            offline={offline}
+            loading={!data.historyLoaded}
+          />
         </div>
       </div>
     </div>

@@ -109,6 +109,16 @@ const attackerBalance = async () =>
   (await getAccount(connection, attackerToken, "confirmed")).amount;
 const attackerBefore = await attackerBalance();
 
+// A guard left running would answer the health check below for its own vault, while ours fails to
+// bind, so the run would co-sign through the wrong guard. Refuse instead.
+if (
+  await fetch(`${GUARD_URL}/health`).then(
+    () => true,
+    () => false
+  )
+) {
+  throw new Error(`A guard is already listening on ${PORT}. Stop it: demo:run starts its own.`);
+}
 const guard = start("apps/guard/src/server.ts", { GUARD_PORT: PORT });
 let guardDead = false;
 guard.on("exit", () => (guardDead = true));

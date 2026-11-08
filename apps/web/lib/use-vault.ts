@@ -25,6 +25,8 @@ export interface VaultData {
   allowlist: Awaited<ReturnType<LeashClient["fetchAllowlist"]>>;
   pending: Awaited<ReturnType<LeashClient["fetchPending"]>>;
   history: HistoryItem[];
+  /** False until the first history fetch returns, so the timeline can show it is loading. */
+  historyLoaded: boolean;
   /** The cluster's clock minus this machine's, in seconds. */
   clockSkew: number;
 }
@@ -59,6 +61,7 @@ export function useVault(address: string) {
     clearTimeout(retry.current);
     const prev = last.current;
     let failed = false;
+    let partial = false;
     // Each part falls back to its last good value, so one rate-limited request never blanks the page.
     const pick = <T>(result: PromiseSettledResult<T>, previous: T | undefined) => {
       failed ||= result.status === "rejected";
@@ -88,6 +91,7 @@ export function useVault(address: string) {
         allowlist: pick(allowlist, prev?.allowlist),
         pending: pick(pending, prev?.pending),
         history: prev?.history ?? [],
+        historyLoaded: prev?.historyLoaded ?? false,
         clockSkew: time ? chainNow - Date.now() / 1000 : prev?.clockSkew ?? 0,
       };
       // The vault shows now; history, up to 40 transaction fetches, follows.
@@ -95,7 +99,13 @@ export function useVault(address: string) {
       const [history] = await Promise.allSettled([
         client.fetchHistory(HISTORY_LIMIT, cache.current),
       ]);
-      show({ ...data, history: pick(history, data.history) });
+      // Some transactions were refused or not yet indexed: fill the gap soon, not at the next poll.
+      partial = history.status === "fulfilled" && history.value.partial;
+      show({
+        ...data,
+        history: pick(history, data.history),
+        historyLoaded: data.historyLoaded || history.status === "fulfilled",
+      });
     } catch (err) {
       failed = true;
       if (isNotFound(err)) {
@@ -105,9 +115,10 @@ export function useVault(address: string) {
       }
     } finally {
       setOffline(failed);
-      failures.current = failed ? failures.current + 1 : 0;
+      failures.current = failed || partial ? failures.current + 1 : 0;
       // Retry sooner than the poll after a failure, backing off while the RPC keeps refusing.
-      if (failed) retry.current = setTimeout(() => void refresh(), backoffMs(failures.current - 1));
+      if (failed || partial)
+        retry.current = setTimeout(() => void refresh(), backoffMs(failures.current - 1));
       running.current = false;
       if (again.current) {
         again.current = false;

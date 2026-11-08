@@ -1,9 +1,16 @@
 // Copies the IDL and its type from target/ (gitignored) into src/idl.ts. Run after `anchor build`.
-import { readFileSync, writeFileSync } from "node:fs";
+// A fresh clone has no target/ yet, so it keeps the committed src/idl.ts.
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const root = new URL("../../../", import.meta.url);
-const idl = readFileSync(new URL("target/idl/leash.json", root), "utf8").trim();
-const type = readFileSync(new URL("target/types/leash.ts", root), "utf8").trim();
+const idlPath = new URL("target/idl/leash.json", root);
+const typePath = new URL("target/types/leash.ts", root);
+if (!existsSync(idlPath) || !existsSync(typePath)) {
+  console.log("sync-idl: no anchor build in target/, keeping the committed src/idl.ts");
+  process.exit(0);
+}
+const idl = readFileSync(idlPath, "utf8").trim();
+const type = readFileSync(typePath, "utf8").trim();
 
 writeFileSync(
   new URL("packages/sdk/src/idl.ts", root),

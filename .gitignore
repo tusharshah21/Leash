@@ -21,3 +21,6 @@ next-env.d.ts
 # Editor and OS
 **/*.rs.bk
 .DS_Store
+
+# Raw recordings and cut segments from demo/video/record.mjs
+demo/video/out/

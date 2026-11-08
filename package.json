@@ -23,6 +23,7 @@
     "gen:invoices": "node --env-file-if-exists=.env scripts/gen-invoices.ts",
     "demo:fresh": "node --env-file-if-exists=.env scripts/demo-fresh.ts",
     "demo:run": "node --env-file-if-exists=.env scripts/demo-run.ts",
+    "demo:check": "node --env-file-if-exists=.env scripts/demo-check.ts",
     "demo:faucet": "node --env-file-if-exists=.env scripts/demo-faucet.ts",
     "guard:reset-demo": "node --env-file-if-exists=.env scripts/guard-reset-demo.ts",
     "demo:snapshot": "node --env-file-if-exists=.env scripts/demo-snapshot.ts",

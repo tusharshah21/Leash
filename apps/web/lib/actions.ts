@@ -142,7 +142,7 @@ function disabled(icon: string, title: string, reason: string): ActionResult {
  * if it matches the onchain hash, and it is labelled as a claim.
  */
 function describe(p: LoadedPending, nonce: string) {
-  const name = p.label ?? "Unknown recipient";
+  const name = p.label ?? "Unlisted address";
   const recipient = p.recipient.toBase58();
   const { reasoning, review } = proposalContext(p.activity, nonce);
   const verified =
