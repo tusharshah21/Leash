@@ -6,7 +6,7 @@ AI agents that hold a wallet read untrusted things, such as invoices, emails and
 
 | | |
 |---|---|
-| Demo video | _Link to be added_ |
+| Demo video | [youtu.be/JHDr80mTQms](https://youtu.be/JHDr80mTQms) (2:38) |
 | Live console | [leash-ruddy.vercel.app](https://leash-ruddy.vercel.app) (devnet) |
 | Program | [`8XkDgSyKTDfg7WGP8RGS4bgqN4L2XjMQmEnG4gUCCu2C`](https://explorer.solana.com/address/8XkDgSyKTDfg7WGP8RGS4bgqN4L2XjMQmEnG4gUCCu2C?cluster=devnet) on Solana devnet |
 

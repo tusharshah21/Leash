@@ -72,11 +72,11 @@ In our devnet demo, an agent paying four invoices falls for a hidden instruction
 
 ## Built with
 
-solana, anchor, rust, typescript, node.js, openai, gpt-4o-mini, next.js, react, tailwindcss, solana-actions, blinks, phantom, helius, vercel, spl-token, pnpm
+solana, anchor, rust, typescript, node.js, openai, gpt-4o-mini, gpt-4o-mini-tts, next.js, react, tailwindcss, solana-actions, blinks, phantom, helius, vercel, spl-token, pnpm, remotion, playwright
 
 ## Links
 
 - Live console: https://leash-ruddy.vercel.app
 - Source: https://github.com/tusharshah21/Leash
 - Program on devnet: https://explorer.solana.com/address/8XkDgSyKTDfg7WGP8RGS4bgqN4L2XjMQmEnG4gUCCu2C?cluster=devnet
-- Demo video: to be added
+- Demo video: https://youtu.be/JHDr80mTQms
