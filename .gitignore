@@ -25,3 +25,4 @@ next-env.d.ts
 # Raw recordings and cut segments from demo/video/record.mjs
 demo/video/out/
 demo/video/*.mp4
+demo/video/*.png

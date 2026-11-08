@@ -1,0 +1,614 @@
+{
+  "cmd": "pnpm test:fast",
+  "code": 0,
+  "lines": [
+    {
+      "t": 0.11,
+      "line": "To run a command as administrator (user \"root\"), use \"sudo <command>\"."
+    },
+    {
+      "t": 0.11,
+      "line": "See \"man sudo_root\" for details."
+    },
+    {
+      "t": 0.11,
+      "line": ""
+    },
+    {
+      "t": 0.45,
+      "line": ""
+    },
+    {
+      "t": 0.45,
+      "line": "> leash@ test:fast /home/tushar/projects/leash"
+    },
+    {
+      "t": 0.45,
+      "line": "> anchor test"
+    },
+    {
+      "t": 0.45,
+      "line": ""
+    },
+    {
+      "t": 2.03,
+      "line": "    Finished `release` profile [optimized] target(s) in 0.38s"
+    },
+    {
+      "t": 2.36,
+      "line": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s"
+    },
+    {
+      "t": 2.37,
+      "line": "     Running unittests src/lib.rs (/home/tushar/projects/leash/target/debug/deps/leash-7cf886d4e576ee70)"
+    },
+    {
+      "t": 2.42,
+      "line": ""
+    },
+    {
+      "t": 2.42,
+      "line": "Found a 'test' script in the Anchor.toml. Running it as a test suite!"
+    },
+    {
+      "t": 2.42,
+      "line": ""
+    },
+    {
+      "t": 2.42,
+      "line": "Running test suite: \"/home/tushar/projects/leash/Anchor.toml\""
+    },
+    {
+      "t": 2.42,
+      "line": ""
+    },
+    {
+      "t": 5.8,
+      "line": "bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)"
+    },
+    {
+      "t": 6.13,
+      "line": "(node:11517) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/tushar/projects/leash/tests/attacks.ts is not specified and it doesn't parse as CommonJS."
+    },
+    {
+      "t": 6.13,
+      "line": "Reparsing as ES module because module syntax was detected. This incurs a performance overhead."
+    },
+    {
+      "t": 6.13,
+      "line": "To eliminate this warning, add \"type\": \"module\" to /home/tushar/projects/leash/package.json."
+    },
+    {
+      "t": 6.13,
+      "line": "(Use `node --trace-warnings ...` to show where the warning was created)"
+    },
+    {
+      "t": 6.13,
+      "line": ""
+    },
+    {
+      "t": 6.13,
+      "line": ""
+    },
+    {
+      "t": 6.3,
+      "line": "  Tier routing"
+    },
+    {
+      "t": 7.01,
+      "line": "    ✔ low_tier_pays_with_the_agent_signature_alone (714ms)"
+    },
+    {
+      "t": 7.71,
+      "line": "    ✔ medium_tier_pays_with_the_guard_signature (693ms)"
+    },
+    {
+      "t": 8.41,
+      "line": "    ✔ per_tx_max_itself_is_still_medium (699ms)"
+    },
+    {
+      "t": 9.11,
+      "line": "    ✔ agent_may_escalate_a_low_amount_by_proposing (703ms)"
+    },
+    {
+      "t": 9.77,
+      "line": "    ✔ zero_amount_cannot_execute_or_be_proposed (657ms)"
+    },
+    {
+      "t": 10.53,
+      "line": "    ✔ over_per_recipient_cap_requires_approval (761ms)"
+    },
+    {
+      "t": 10.53,
+      "line": ""
+    },
+    {
+      "t": 10.53,
+      "line": "  Attacks"
+    },
+    {
+      "t": 11.27,
+      "line": "    ✔ injected_recipient_not_allowlisted_cannot_execute (742ms)"
+    },
+    {
+      "t": 11.98,
+      "line": "    ✔ injected_recipient_cannot_borrow_another_recipients_allow_entry (716ms)"
+    },
+    {
+      "t": 12.75,
+      "line": "    ✔ removed_recipient_cannot_execute (768ms)"
+    },
+    {
+      "t": 13.51,
+      "line": "    ✔ injected_recipient_proposal_moves_no_funds (757ms)"
+    },
+    {
+      "t": 14.17,
+      "line": "    ✔ agent_cannot_exceed_per_tx_max_without_approval (662ms)"
+    },
+    {
+      "t": 14.98,
+      "line": "    ✔ agent_cannot_exceed_daily_cap (816ms)"
+    },
+    {
+      "t": 14.98,
+      "line": "    - daily_cap_resets_after_window"
+    },
+    {
+      "t": 15.74,
+      "line": "    ✔ set_mandate_preserves_a_nonzero_spent_today (753ms)"
+    },
+    {
+      "t": 16.39,
+      "line": "    ✔ window_and_ttl_below_the_minimum_are_rejected (654ms)"
+    },
+    {
+      "t": 17.01,
+      "line": "    ✔ new_mandate_defaults_to_a_day_for_window_and_ttl (623ms)"
+    },
+    {
+      "t": 17.66,
+      "line": "    ✔ medium_tier_without_guard_signature_fails (649ms)"
+    },
+    {
+      "t": 18.3,
+      "line": "    ✔ fake_guard_signature_fails (641ms)"
+    },
+    {
+      "t": 19.01,
+      "line": "    ✔ random_key_cannot_act_as_agent (709ms)"
+    },
+    {
+      "t": 19.72,
+      "line": "    ✔ stolen_agent_key_after_revoke_cannot_spend (710ms)"
+    },
+    {
+      "t": 20.84,
+      "line": "    ✔ leaked_agent_key_useless_after_rotate (1119ms)"
+    },
+    {
+      "t": 28.03,
+      "line": "    ✔ expired_mandate_blocks_agent (7193ms)"
+    },
+    {
+      "t": 28.81,
+      "line": "    ✔ owner_withdraw_still_works_when_paused (779ms)"
+    },
+    {
+      "t": 28.81,
+      "line": ""
+    },
+    {
+      "t": 28.81,
+      "line": "  Approvals"
+    },
+    {
+      "t": 29.65,
+      "line": "    ✔ propose_then_approve_pays_the_stored_recipient (832ms)"
+    },
+    {
+      "t": 30.58,
+      "line": "    ✔ each_proposal_gets_its_own_nonce (929ms)"
+    },
+    {
+      "t": 31.36,
+      "line": "    ✔ random_key_cannot_approve_pending (782ms)"
+    },
+    {
+      "t": 32.05,
+      "line": "    ✔ agent_cannot_approve_its_own_pending (692ms)"
+    },
+    {
+      "t": 32.75,
+      "line": "    ✔ guard_cannot_approve_pending (700ms)"
+    },
+    {
+      "t": 33.51,
+      "line": "    ✔ device_key_can_approve_pending (757ms)"
+    },
+    {
+      "t": 34.27,
+      "line": "    ✔ owner_can_reject_pending (756ms)"
+    },
+    {
+      "t": 35.04,
+      "line": "    ✔ device_key_can_reject_pending (773ms)"
+    },
+    {
+      "t": 35.82,
+      "line": "    ✔ pending_action_cannot_be_executed_twice (778ms)"
+    },
+    {
+      "t": 36.58,
+      "line": "    ✔ rejected_pending_cannot_be_approved (756ms)"
+    },
+    {
+      "t": 36.58,
+      "line": "    - expired_pending_cannot_be_approved"
+    },
+    {
+      "t": 37.34,
+      "line": "    ✔ cannot_close_active_pending (760ms)"
+    },
+    {
+      "t": 38.17,
+      "line": "    ✔ close_returns_rent (831ms)"
+    },
+    {
+      "t": 39,
+      "line": "    ✔ non_owner_cannot_close_pending (831ms)"
+    },
+    {
+      "t": 39.85,
+      "line": "    ✔ closed_pending_cannot_be_approved (845ms)"
+    },
+    {
+      "t": 40.6,
+      "line": "    ✔ approve_to_wrong_recipient_account_fails (755ms)"
+    },
+    {
+      "t": 41.56,
+      "line": "    ✔ approvals_still_work_when_paused (951ms)"
+    },
+    {
+      "t": 53.34,
+      "line": "    ✔ approvals_still_work_after_the_mandate_expires (11789ms)"
+    },
+    {
+      "t": 54.12,
+      "line": "    ✔ human_approval_may_exceed_daily_cap_and_then_blocks_the_agent (789ms)"
+    },
+    {
+      "t": 54.13,
+      "line": ""
+    },
+    {
+      "t": 54.13,
+      "line": "      Compute units (from the tx logs):"
+    },
+    {
+      "t": 54.13,
+      "line": "        agent_execute (LOW): 14559"
+    },
+    {
+      "t": 54.13,
+      "line": "        agent_execute (MEDIUM): 16085"
+    },
+    {
+      "t": 54.13,
+      "line": "        approve_pending: 16491"
+    },
+    {
+      "t": 54.13,
+      "line": ""
+    },
+    {
+      "t": 54.13,
+      "line": "  leash"
+    },
+    {
+      "t": 54.13,
+      "line": "    init_vault"
+    },
+    {
+      "t": 54.43,
+      "line": "      ✔ stores the keys and creates a vault-owned token account (306ms)"
+    },
+    {
+      "t": 54.74,
+      "line": "      ✔ second_vault_for_same_owner_rejected (312ms)"
+    },
+    {
+      "t": 54.74,
+      "line": "    key separation"
+    },
+    {
+      "t": 54.82,
+      "line": "      ✔ agent_equal_guard_rejected (74ms)"
+    },
+    {
+      "t": 54.88,
+      "line": "      ✔ agent_equal_owner_rejected (65ms)"
+    },
+    {
+      "t": 54.95,
+      "line": "      ✔ guard_equal_owner_rejected (62ms)"
+    },
+    {
+      "t": 55.02,
+      "line": "      ✔ device_equal_agent_or_guard_rejected (73ms)"
+    },
+    {
+      "t": 55.43,
+      "line": "      ✔ rotate_to_reused_key_rejected (414ms)"
+    },
+    {
+      "t": 55.43,
+      "line": "    set_mandate"
+    },
+    {
+      "t": 55.84,
+      "line": "      ✔ creates the mandate (405ms)"
+    },
+    {
+      "t": 57.93,
+      "line": "      ✔ update changes limits but keeps the spending window (2094ms)"
+    },
+    {
+      "t": 58.32,
+      "line": "      ✔ non_owner_cannot_set_mandate (388ms)"
+    },
+    {
+      "t": 58.65,
+      "line": "      ✔ invalid_mandate_thresholds_rejected (328ms)"
+    },
+    {
+      "t": 58.96,
+      "line": "      ✔ already_expired_mandate_rejected (310ms)"
+    },
+    {
+      "t": 58.96,
+      "line": "    allowlist"
+    },
+    {
+      "t": 59.34,
+      "line": "      ✔ adds a recipient (378ms)"
+    },
+    {
+      "t": 59.78,
+      "line": "      ✔ removes a recipient and refunds rent to the owner (436ms)"
+    },
+    {
+      "t": 60.17,
+      "line": "      ✔ non_owner_cannot_add_recipient (395ms)"
+    },
+    {
+      "t": 60.62,
+      "line": "      ✔ non_owner_cannot_remove_recipient (447ms)"
+    },
+    {
+      "t": 60.62,
+      "line": "    deposit and withdraw"
+    },
+    {
+      "t": 61,
+      "line": "      ✔ deposit moves funds into the vault (378ms)"
+    },
+    {
+      "t": 61.44,
+      "line": "      ✔ withdraw returns funds to the owner (443ms)"
+    },
+    {
+      "t": 61.77,
+      "line": "      ✔ zero_amount_rejected (331ms)"
+    },
+    {
+      "t": 62.28,
+      "line": "      ✔ non_owner_cannot_withdraw (502ms)"
+    },
+    {
+      "t": 62.79,
+      "line": "      ✔ owner_cannot_withdraw_to_someone_elses_account (508ms)"
+    },
+    {
+      "t": 63.28,
+      "line": "      ✔ owner_can_withdraw_while_paused (491ms)"
+    },
+    {
+      "t": 63.28,
+      "line": "    revoke_agent and unpause"
+    },
+    {
+      "t": 63.74,
+      "line": "      ✔ owner can revoke and unpause (458ms)"
+    },
+    {
+      "t": 64.12,
+      "line": "      ✔ device_can_revoke (381ms)"
+    },
+    {
+      "t": 64.49,
+      "line": "      ✔ random_key_cannot_revoke (371ms)"
+    },
+    {
+      "t": 64.82,
+      "line": "      ✔ agent_cannot_revoke (334ms)"
+    },
+    {
+      "t": 65.19,
+      "line": "      ✔ revoke_without_device_is_owner_only (369ms)"
+    },
+    {
+      "t": 65.59,
+      "line": "      ✔ device_cannot_unpause (396ms)"
+    },
+    {
+      "t": 65.59,
+      "line": "    close_vault"
+    },
+    {
+      "t": 66.3,
+      "line": "      ✔ non_owner_cannot_close (710ms)"
+    },
+    {
+      "t": 66.8,
+      "line": "      ✔ cannot_close_active_vault (500ms)"
+    },
+    {
+      "t": 67.44,
+      "line": "      ✔ close_returns_funds_and_rent (638ms)"
+    },
+    {
+      "t": 68.65,
+      "line": "      ✔ close_rejects_foreign_allow_entry (1206ms)"
+    },
+    {
+      "t": 69.47,
+      "line": "      ✔ owner_can_recreate_vault_after_close (824ms)"
+    },
+    {
+      "t": 72.55,
+      "line": "      ✔ stale_pending_cannot_be_decided_after_recreate (3078ms)"
+    },
+    {
+      "t": 75.65,
+      "line": "      ✔ stale_pending_can_be_closed_and_proposals_still_work (3111ms)"
+    },
+    {
+      "t": 75.66,
+      "line": "    rotate_keys"
+    },
+    {
+      "t": 75.98,
+      "line": "      ✔ rotating_agent_requires_pause (328ms)"
+    },
+    {
+      "t": 76.44,
+      "line": "      ✔ non_owner_cannot_rotate_keys (458ms)"
+    },
+    {
+      "t": 76.73,
+      "line": "      ✔ device_cannot_rotate_keys (296ms)"
+    },
+    {
+      "t": 77.24,
+      "line": "      ✔ guard and device rotate without a pause, omitted keys stay (511ms)"
+    },
+    {
+      "t": 77.64,
+      "line": "      ✔ owner can remove the device key (391ms)"
+    },
+    {
+      "t": 77.64,
+      "line": ""
+    },
+    {
+      "t": 77.64,
+      "line": "  sdk: errors"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ maps every program error, by name and by code"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ gives the short message"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ falls back to the original message"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ LeashTxError keeps the signature and the code"
+    },
+    {
+      "t": 77.64,
+      "line": ""
+    },
+    {
+      "t": 77.64,
+      "line": "  sdk: classifyTier"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ LOW up to and including low_threshold"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ MEDIUM above low_threshold up to and including per_tx_max"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ HIGH above per_tx_max"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ HIGH when the recipient is not allowlisted, however small the amount"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ HIGH above per_recipient_cap, even when below per_tx_max"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ spending up to daily_cap is allowed, one unit more is HIGH"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ the window resets at exactly window_start + window_secs"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ a reset does not lift per_tx_max"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ spent_today above daily_cap after an approval blocks the agent"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ does not wrap near u64::MAX"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ zero and negative amounts throw"
+    },
+    {
+      "t": 77.64,
+      "line": ""
+    },
+    {
+      "t": 77.64,
+      "line": "  sdk: patchClearDevice"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ replaces the trailing None with Some(None)"
+    },
+    {
+      "t": 77.64,
+      "line": "    ✔ refuses data that does not end in None"
+    },
+    {
+      "t": 77.64,
+      "line": ""
+    },
+    {
+      "t": 77.64,
+      "line": ""
+    },
+    {
+      "t": 77.64,
+      "line": "  97 passing (1m)"
+    },
+    {
+      "t": 77.64,
+      "line": "  2 pending"
+    },
+    {
+      "t": 77.64,
+      "line": ""
+    }
+  ]
+}

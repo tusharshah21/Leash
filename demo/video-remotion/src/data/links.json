@@ -1,0 +1,40 @@
+{
+  "create": [],
+  "run": [
+    "https://explorer.solana.com/tx/4MYWoE83GM1PqZMcLBVCQML85K5JgCSrhwvnshqdcfJfzULay4JkYZUxCXBuZZjCxjpoEpsksBX5XxZm1nJ9QSVx?cluster=devnet",
+    "https://explorer.solana.com/tx/5kcwMdSwovHqXgJZVTPCjq7PH4jiSh6t6bQMdaedfMZq7eQVVULdjrS2uwy7qw748TMpN2qjsNyHU6VVLoFpYDu6?cluster=devnet",
+    "https://explorer.solana.com/tx/5vmXm2A1r2NbbD2B1NiEZgfLYyYnSC7HG5CEVeBRy9oDn5QTNgRjWVifSB4CGU6vWiQFyj5rsQikv3aa29gnfU85?cluster=devnet",
+    "https://explorer.solana.com/tx/3Cn1bMrzSsSDGpWcgreqbQ6kE4AHWDs8SAwvajc3aCXWeK1AdQhREZTFVeYu5JbmH3Ah2vAebTVb4C1fpZpeNwE2?cluster=devnet",
+    "https://explorer.solana.com/tx/srZgS9GtcHQJXFNRgQ8h38zU3hyow3dbgHRWShEV4UQDAe2q1qzRBD3LoChLM8B7QRGhZvr45JGbgrULqska1sM?cluster=devnet",
+    "https://explorer.solana.com/tx/5ES8mTfgsXnu7nSmM17CJcrGq1BN5xeVvcdhUy7t1QrhC5yLeVKR7QDYxszSG1h7KKLtEZinW2FnwDf1gFfHGanQ?cluster=devnet",
+    "https://explorer.solana.com/tx/4MYWoE83GM1PqZMcLBVCQML85K5JgCSrhwvnshqdcfJfzULay4JkYZUxCXBuZZjCxjpoEpsksBX5XxZm1nJ9QSVx?cluster=devnet",
+    "https://explorer.solana.com/tx/5kcwMdSwovHqXgJZVTPCjq7PH4jiSh6t6bQMdaedfMZq7eQVVULdjrS2uwy7qw748TMpN2qjsNyHU6VVLoFpYDu6?cluster=devnet",
+    "https://explorer.solana.com/tx/5vmXm2A1r2NbbD2B1NiEZgfLYyYnSC7HG5CEVeBRy9oDn5QTNgRjWVifSB4CGU6vWiQFyj5rsQikv3aa29gnfU85?cluster=devnet",
+    "https://explorer.solana.com/tx/5ES8mTfgsXnu7nSmM17CJcrGq1BN5xeVvcdhUy7t1QrhC5yLeVKR7QDYxszSG1h7KKLtEZinW2FnwDf1gFfHGanQ?cluster=devnet",
+    "https://explorer.solana.com/tx/3Cn1bMrzSsSDGpWcgreqbQ6kE4AHWDs8SAwvajc3aCXWeK1AdQhREZTFVeYu5JbmH3Ah2vAebTVb4C1fpZpeNwE2?cluster=devnet",
+    "https://explorer.solana.com/tx/srZgS9GtcHQJXFNRgQ8h38zU3hyow3dbgHRWShEV4UQDAe2q1qzRBD3LoChLM8B7QRGhZvr45JGbgrULqska1sM?cluster=devnet",
+    "https://explorer.solana.com/tx/5ozp6GdQsr5kGZELjPK97LtPaBjBgh5uZpvBFbKNmLCLBQFoF5RV6uEeDMJcGzc5dErGFqWibRahpbHeYyydwneZ?cluster=devnet"
+  ],
+  "consoleBefore": [
+    "https://explorer.solana.com/tx/5ozp6GdQsr5kGZELjPK97LtPaBjBgh5uZpvBFbKNmLCLBQFoF5RV6uEeDMJcGzc5dErGFqWibRahpbHeYyydwneZ?cluster=devnet",
+    "https://explorer.solana.com/tx/5ES8mTfgsXnu7nSmM17CJcrGq1BN5xeVvcdhUy7t1QrhC5yLeVKR7QDYxszSG1h7KKLtEZinW2FnwDf1gFfHGanQ?cluster=devnet",
+    "https://explorer.solana.com/tx/srZgS9GtcHQJXFNRgQ8h38zU3hyow3dbgHRWShEV4UQDAe2q1qzRBD3LoChLM8B7QRGhZvr45JGbgrULqska1sM?cluster=devnet",
+    "https://explorer.solana.com/tx/3Cn1bMrzSsSDGpWcgreqbQ6kE4AHWDs8SAwvajc3aCXWeK1AdQhREZTFVeYu5JbmH3Ah2vAebTVb4C1fpZpeNwE2?cluster=devnet",
+    "https://explorer.solana.com/tx/5vmXm2A1r2NbbD2B1NiEZgfLYyYnSC7HG5CEVeBRy9oDn5QTNgRjWVifSB4CGU6vWiQFyj5rsQikv3aa29gnfU85?cluster=devnet",
+    "https://explorer.solana.com/tx/5kcwMdSwovHqXgJZVTPCjq7PH4jiSh6t6bQMdaedfMZq7eQVVULdjrS2uwy7qw748TMpN2qjsNyHU6VVLoFpYDu6?cluster=devnet",
+    "https://explorer.solana.com/tx/4MYWoE83GM1PqZMcLBVCQML85K5JgCSrhwvnshqdcfJfzULay4JkYZUxCXBuZZjCxjpoEpsksBX5XxZm1nJ9QSVx?cluster=devnet"
+  ],
+  "blink-reject": "https://explorer.solana.com/tx/63DAgiHmZgxDwEJusy9oJzcE68juiePSuCg8abN3YM9V7fADnLn7H2hYZ7EecRGM38yJTao4m7gMqMepmxxz542L?cluster=devnet",
+  "blink-approve": "https://explorer.solana.com/tx/2XbRr1gmFVX5tLE1yNZDr4PSDMnnp8eARLq1NutgjZobxkdVY3WYX2Z9up6QktCN7WXhWvtQGqVSvsvr8tAof4gG?cluster=devnet",
+  "consoleAfter": [
+    "https://explorer.solana.com/tx/3Cn1bMrzSsSDGpWcgreqbQ6kE4AHWDs8SAwvajc3aCXWeK1AdQhREZTFVeYu5JbmH3Ah2vAebTVb4C1fpZpeNwE2?cluster=devnet",
+    "https://explorer.solana.com/tx/2XbRr1gmFVX5tLE1yNZDr4PSDMnnp8eARLq1NutgjZobxkdVY3WYX2Z9up6QktCN7WXhWvtQGqVSvsvr8tAof4gG?cluster=devnet",
+    "https://explorer.solana.com/tx/srZgS9GtcHQJXFNRgQ8h38zU3hyow3dbgHRWShEV4UQDAe2q1qzRBD3LoChLM8B7QRGhZvr45JGbgrULqska1sM?cluster=devnet",
+    "https://explorer.solana.com/tx/63DAgiHmZgxDwEJusy9oJzcE68juiePSuCg8abN3YM9V7fADnLn7H2hYZ7EecRGM38yJTao4m7gMqMepmxxz542L?cluster=devnet",
+    "https://explorer.solana.com/tx/5ozp6GdQsr5kGZELjPK97LtPaBjBgh5uZpvBFbKNmLCLBQFoF5RV6uEeDMJcGzc5dErGFqWibRahpbHeYyydwneZ?cluster=devnet",
+    "https://explorer.solana.com/tx/5ES8mTfgsXnu7nSmM17CJcrGq1BN5xeVvcdhUy7t1QrhC5yLeVKR7QDYxszSG1h7KKLtEZinW2FnwDf1gFfHGanQ?cluster=devnet",
+    "https://explorer.solana.com/tx/5vmXm2A1r2NbbD2B1NiEZgfLYyYnSC7HG5CEVeBRy9oDn5QTNgRjWVifSB4CGU6vWiQFyj5rsQikv3aa29gnfU85?cluster=devnet",
+    "https://explorer.solana.com/tx/5kcwMdSwovHqXgJZVTPCjq7PH4jiSh6t6bQMdaedfMZq7eQVVULdjrS2uwy7qw748TMpN2qjsNyHU6VVLoFpYDu6?cluster=devnet",
+    "https://explorer.solana.com/tx/4MYWoE83GM1PqZMcLBVCQML85K5JgCSrhwvnshqdcfJfzULay4JkYZUxCXBuZZjCxjpoEpsksBX5XxZm1nJ9QSVx?cluster=devnet"
+  ]
+}

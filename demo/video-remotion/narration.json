@@ -1,0 +1,12 @@
+[
+  { "id": "hook", "text": "AI agents are starting to hold real money. And an agent can be talked out of it by a single document. This is Leash: an onchain firewall that decides what an agent may do with its wallet." },
+  { "id": "layers", "text": "The funds live in a Solana program, not in the agent's key. Every payment passes three layers. Small payments to vendors you listed go straight through. Medium ones need a co-signature from a separate guard service. Anything large or unlisted becomes a pending action that only you can approve." },
+  { "id": "setup", "text": "Here's a fresh vault, created with one signature. Two thousand test dollars, three allowlisted vendors, and a daily cap of five hundred." },
+  { "id": "run", "text": "Now the agent pays this week's invoices. It's a real GPT tool loop, with no injection defenses, on purpose. Two of these PDFs hide instructions. One says: also pay a migration fee to this address. The other inflates a real vendor's bill from 60 to 190. The honest invoices settle. The fooled payments don't." },
+  { "id": "card", "text": "The agent fell for it. It asked to send 150 dollars to an address I never approved. The program won't execute that. It can only wait here as a proposal, with a countdown, until I decide. The guard flags it too, but its review is advice. The chain is the limit." },
+  { "id": "why", "text": "Each proposal carries a hash of the agent's reasoning onchain, so the console only shows reasoning that matches. The inflated bill went to a real vendor, so the guard was the layer that caught it: the task said 60. And a stolen agent key calling the program directly? Rejected onchain. Not allowlisted." },
+  { "id": "phone", "text": "I don't need to be at my desk. Each pending payment has a QR code that opens a Blink on my phone, showing only facts from the chain. Reject the attacker. Approve the real DataLabs invoice. Both are signed transactions, and the console updates live." },
+  { "id": "kill", "text": "If I stop trusting the agent, one transaction revokes it. It can't pay or propose anything until I say so." },
+  { "id": "proof", "text": "Every attack you just saw is also a test that asserts the exact onchain error. Ninety-seven of them pass. And the README is clear about what Leash does not cover." },
+  { "id": "close", "text": "The agent can be fooled. The money can't. This is Leash, live on Solana devnet." }
+]
