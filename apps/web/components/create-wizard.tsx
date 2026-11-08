@@ -188,7 +188,7 @@ export function CreateWizard() {
         </div>
       ) : (
         <div className="mt-8 grid gap-6 md:grid-cols-[12rem_1fr]">
-          <ol className="flex gap-2 md:block md:space-y-1">
+          <ol data-tour="create-steps" className="flex gap-2 md:block md:space-y-1">
             {STEPS.map((name, i) => (
               <li key={name} className={i === step ? "flex-[2.5]" : "flex-1"}>
                 <button

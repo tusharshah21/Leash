@@ -74,7 +74,7 @@ const REPLAY: {
 /** The hero's proof: the attack run, replayed row by row in the console's own components. */
 export function AttackReplay() {
   return (
-    <figure className="border border-line-strong bg-surface shadow-2xl shadow-black/40">
+    <figure data-tour="replay" className="border border-line-strong bg-surface shadow-2xl shadow-black/40">
       <figcaption className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
         <span className="eyebrow">Agent pays 4 invoices, 2 are poisoned</span>
         <span className="mono flex items-center gap-2 text-xs text-muted">

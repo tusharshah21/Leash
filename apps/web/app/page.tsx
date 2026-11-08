@@ -27,7 +27,7 @@ export default function Home() {
   return (
     <div className="mx-auto max-w-[1600px] px-4 md:px-8">
       <section className="grid items-center gap-10 py-12 md:py-20 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:gap-16">
-        <div>
+        <div data-tour="hero">
           <p className="eyebrow">Onchain firewall for AI agents</p>
           <h1 className="mt-4 text-4xl leading-[1.08] font-semibold tracking-tight text-balance md:text-6xl">
             AI agents are about to hold real money.
@@ -58,14 +58,14 @@ export default function Home() {
         <AttackReplay />
       </section>
 
-      <section aria-labelledby="layers" className="pb-14">
+      <section aria-labelledby="layers" data-tour="layers" className="pb-14">
         <h2 id="layers" className="eyebrow mb-4">
           Every action passes three layers
         </h2>
         <LayerDiagram />
       </section>
 
-      <section aria-labelledby="fooled" className="pb-14">
+      <section aria-labelledby="fooled" data-tour="fooled" className="pb-14">
         <h2 id="fooled" className="eyebrow mb-4">
           When the agent gets fooled
         </h2>
@@ -82,7 +82,7 @@ export default function Home() {
         </ul>
       </section>
 
-      <section aria-labelledby="live" className="pb-20">
+      <section aria-labelledby="live" data-tour="live" className="pb-20">
         <h2 id="live" className="eyebrow mb-4">
           Live from devnet
         </h2>

@@ -125,7 +125,7 @@ function Ready({
     <div className="mx-auto max-w-[1600px] space-y-4 px-4 py-6 md:px-8">
       {offline && <Offline />}
 
-      <Card>
+      <Card tour="vault">
         <div className="grid gap-6 p-4 md:grid-cols-[auto_1fr] md:gap-10 md:p-6">
           <div>
             <div className="flex items-center gap-3">
@@ -171,18 +171,22 @@ function Ready({
 
       <div className="grid items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,5fr)_minmax(0,6fr)]">
         <div className="order-3 space-y-4 lg:order-none lg:row-span-2 xl:row-span-1">
-          <MandateCard mandate={mandate} skew={clockSkew} />
-          <KillSwitch
-            address={address}
-            paused={vault.paused}
-            isOwner={isOwner}
-            device={vault.device?.toBase58()}
-            signer={signer}
-            refresh={refresh}
-          />
+          <div data-tour="mandate">
+            <MandateCard mandate={mandate} skew={clockSkew} />
+          </div>
+          <div data-tour="kill">
+            <KillSwitch
+              address={address}
+              paused={vault.paused}
+              isOwner={isOwner}
+              device={vault.device?.toBase58()}
+              signer={signer}
+              refresh={refresh}
+            />
+          </div>
           {isOwner && <DangerZone paused={vault.paused} balance={data.balance} signer={signer} />}
         </div>
-        <div className="order-1 min-w-0 lg:order-none">
+        <div data-tour="pending" className="order-1 min-w-0 lg:order-none">
           <PendingQueue
             pending={open}
             activity={activity}
@@ -197,7 +201,7 @@ function Ready({
             refresh={refresh}
           />
         </div>
-        <div className="order-2 min-w-0 lg:order-none">
+        <div data-tour="timeline" className="order-2 min-w-0 lg:order-none">
           <Timeline
             rows={rows}
             labels={labels}

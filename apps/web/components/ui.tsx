@@ -21,14 +21,17 @@ export function Card({
   aside,
   children,
   className = "",
+  tour,
 }: {
   title?: string;
   aside?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** An anchor for the guided tour. */
+  tour?: string;
 }) {
   return (
-    <section className={`border border-line bg-surface ${className}`}>
+    <section data-tour={tour} className={`border border-line bg-surface ${className}`}>
       {title && (
         <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <h2 className="eyebrow">{title}</h2>

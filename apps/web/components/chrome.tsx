@@ -54,7 +54,7 @@ function WalletMenu() {
   );
 
   return (
-    <div className="relative" ref={menu}>
+    <div className="relative" ref={menu} data-tour="wallet">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -121,7 +121,7 @@ export function Header() {
             <Logo />
             <span className="mono">LEASH</span>
           </Link>
-          <nav aria-label="Main" className="flex items-center gap-4 text-sm text-muted md:gap-6">
+          <nav aria-label="Main" data-tour="nav" className="flex items-center gap-4 text-sm text-muted md:gap-6">
             <Link href={`/console/${DEMO_VAULT}`} className="hover:text-ink">
               Console
             </Link>
